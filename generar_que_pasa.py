@@ -2,7 +2,7 @@ import pandas as pd
 import random
 
 # Cargar dataset
-df = pd.read_csv("data/actuales/videos.csv")
+df = pd.read_csv("data/videos.csv")
 
 # 100 palabras reales por categoría
 category_words = {

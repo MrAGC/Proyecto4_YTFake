@@ -7,8 +7,7 @@ import pandas as pd
 
 
 DATA_DIR = Path("data")
-CURRENT_DATA_DIR = DATA_DIR / "actuales"
-SOURCE_PATH = CURRENT_DATA_DIR / "youtube recommendation dataset.csv"
+SOURCE_PATH = DATA_DIR / "youtube recommendation dataset.csv"
 RNG_SEED = 42
 
 
@@ -524,13 +523,49 @@ def main() -> None:
     user_profiles_df = build_user_profiles(users_df, follows_df, creators_df)
     new_uploads_df = build_new_uploads_table(channels_df, videos_df, rng)
 
-    CURRENT_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    users_df.to_csv(CURRENT_DATA_DIR / "usuarios.csv", index=False)
-    user_profiles_df.to_csv(CURRENT_DATA_DIR / "usuarios_perfiles.csv", index=False)
-    channels_df.to_csv(CURRENT_DATA_DIR / "canales.csv", index=False)
-    follows_df.to_csv(CURRENT_DATA_DIR / "seguimientos_canales.csv", index=False)
-    videos_df.to_csv(CURRENT_DATA_DIR / "videos.csv", index=False)
-    new_uploads_df.to_csv(CURRENT_DATA_DIR / "videos_nuevos.csv", index=False)
+    final_videos_df = pd.concat([videos_df, new_uploads_df], ignore_index=True, sort=False)
+    final_videos_df = final_videos_df.sort_values("video_id").reset_index(drop=True)
+
+    existing_videos_path = DATA_DIR / "videos.csv"
+    if existing_videos_path.exists():
+        existing_videos = pd.read_csv(existing_videos_path, usecols=["video_id", "titulo", "que_pasa"])
+        final_videos_df = final_videos_df.drop(columns=["titulo", "que_pasa"], errors="ignore")
+        final_videos_df = final_videos_df.merge(existing_videos, on="video_id", how="left")
+        final_videos_df["titulo"] = final_videos_df["titulo"].fillna("")
+        final_videos_df["que_pasa"] = final_videos_df["que_pasa"].fillna("")
+        ordered_columns = [
+            "video_id",
+            "channel_id",
+            "creator_user_id",
+            "titulo",
+            "video_duration_s",
+            "published_at",
+            "category",
+            "que_pasa",
+            "first_interaction_at",
+            "last_interaction_at",
+            "total_views",
+            "total_likes",
+            "like_rate",
+            "total_comments",
+            "comment_rate",
+            "suscriptores_ganados",
+            "subscription_rate",
+            "avg_watch_percent",
+            "avg_watch_time_s",
+            "veces_recomendado",
+            "total_clics",
+            "click_through_rate",
+            "is_cold_start_video",
+        ]
+        final_videos_df = final_videos_df[ordered_columns].copy()
+
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    users_df.to_csv(DATA_DIR / "usuarios.csv", index=False)
+    user_profiles_df.to_csv(DATA_DIR / "usuarios_perfiles.csv", index=False)
+    channels_df.to_csv(DATA_DIR / "canales.csv", index=False)
+    follows_df.to_csv(DATA_DIR / "seguimientos_canales.csv", index=False)
+    final_videos_df.to_csv(DATA_DIR / "videos.csv", index=False)
 
     print()
     print("Generated datasets")
@@ -538,8 +573,7 @@ def main() -> None:
     print(f"  usuarios_perfiles.csv     -> {len(user_profiles_df):,} rows")
     print(f"  canales.csv               -> {len(channels_df):,} rows")
     print(f"  seguimientos_canales.csv  -> {len(follows_df):,} rows")
-    print(f"  videos.csv                -> {len(videos_df):,} rows")
-    print(f"  videos_nuevos.csv         -> {len(new_uploads_df):,} rows")
+    print(f"  videos.csv                -> {len(final_videos_df):,} rows")
 
 
 if __name__ == "__main__":

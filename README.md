@@ -6,14 +6,14 @@ La documentacion ampliada del proyecto esta en `docs/README.md`.
 
 Estructura recomendada de datasets:
 
-- `data/actuales/`: datasets operativos y vigentes
+- `data/`: datasets activos
 - `data/viejos/`: versiones antiguas, enriquecimientos legacy y duplicados que no se eliminan
 
 ### Para generar los datasets base
 
 Necesitas este archivo de entrada:
 
-- `data/actuales/youtube recommendation dataset.csv`
+- `data/youtube recommendation dataset.csv`
 
 Con este comando:
 
@@ -23,16 +23,15 @@ Con este comando:
 
 se generan los CSV base del proyecto:
 
-- `data/actuales/usuarios.csv`
-- `data/actuales/usuarios_perfiles.csv`
-- `data/actuales/canales.csv`
-- `data/actuales/seguimientos_canales.csv`
-- `data/actuales/videos.csv`
-- `data/actuales/videos_nuevos.csv`
+- `data/usuarios.csv`
+- `data/usuarios_perfiles.csv`
+- `data/canales.csv`
+- `data/seguimientos_canales.csv`
+- `data/videos.csv`
 
 ### Para preparar el pipeline de recomendacion
 
-`prepare_recommendation_data.py` necesita estos CSV en `data/actuales/`:
+`prepare_recommendation_data.py` necesita estos CSV en `data/`:
 
 - `usuarios.csv`
 - `videos.csv`
@@ -41,9 +40,7 @@ se generan los CSV base del proyecto:
 
 CSV opcional:
 
-- `videos_completo.csv`
-
-Si existe, se usa para enriquecer `titulo` y `que_pasa` del catalogo de videos.
+- ninguno
 
 Metricas previstas:
 - HitRate

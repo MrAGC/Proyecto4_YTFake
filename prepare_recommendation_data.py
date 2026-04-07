@@ -7,16 +7,13 @@ import pandas as pd
 
 
 DATA_DIR = Path("data")
-CURRENT_DATA_DIR = DATA_DIR / "actuales"
 OUTPUT_DIR = Path("reco_output")
 FALLBACK_OUTPUT_DIR = Path("reco_output_v2")
 
-USERS_PATH = CURRENT_DATA_DIR / "usuarios.csv"
-VIDEOS_PATH = CURRENT_DATA_DIR / "videos.csv"
-VIDEOS_COMPLETE_PATH = CURRENT_DATA_DIR / "videos_completo.csv"
-NEW_VIDEOS_PATH = CURRENT_DATA_DIR / "videos_nuevos.csv"
-CHANNELS_PATH = CURRENT_DATA_DIR / "canales.csv"
-FOLLOWS_PATH = CURRENT_DATA_DIR / "seguimientos_canales.csv"
+USERS_PATH = DATA_DIR / "usuarios.csv"
+VIDEOS_PATH = DATA_DIR / "videos.csv"
+CHANNELS_PATH = DATA_DIR / "canales.csv"
+FOLLOWS_PATH = DATA_DIR / "seguimientos_canales.csv"
 
 
 def safe_mode(series: pd.Series, default: str = "unknown") -> str:
@@ -47,17 +44,6 @@ def load_inputs() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFram
 
     videos = pd.read_csv(VIDEOS_PATH)
     videos = parse_date_columns(videos, ["published_at", "first_interaction_at", "last_interaction_at"])
-
-    if NEW_VIDEOS_PATH.exists():
-        new_videos = pd.read_csv(NEW_VIDEOS_PATH)
-        new_videos = parse_date_columns(new_videos, ["published_at", "first_interaction_at", "last_interaction_at"])
-        videos = pd.concat([videos, new_videos], ignore_index=True, sort=False)
-
-    if VIDEOS_COMPLETE_PATH.exists():
-        complete_videos = pd.read_csv(VIDEOS_COMPLETE_PATH)
-        complete_videos = complete_videos[["video_id", "titulo", "que_pasa"]].copy()
-        videos = videos.drop(columns=[col for col in ["titulo", "que_pasa"] if col in videos.columns])
-        videos = videos.merge(complete_videos, on="video_id", how="left")
 
     channels = pd.read_csv(CHANNELS_PATH) if CHANNELS_PATH.exists() else pd.DataFrame()
     channels = parse_date_columns(
