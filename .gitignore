@@ -9,6 +9,8 @@ wheels/
 #datasets
 data/
 reco_output/
+reco_output_v2/
+*.csv
 
 # Virtual environments
 .venv
