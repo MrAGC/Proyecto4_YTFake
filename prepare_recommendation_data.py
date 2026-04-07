@@ -7,15 +7,16 @@ import pandas as pd
 
 
 DATA_DIR = Path("data")
+CURRENT_DATA_DIR = DATA_DIR / "actuales"
 OUTPUT_DIR = Path("reco_output")
 FALLBACK_OUTPUT_DIR = Path("reco_output_v2")
 
-USERS_PATH = DATA_DIR / "usuarios.csv"
-VIDEOS_PATH = DATA_DIR / "videos.csv"
-VIDEOS_COMPLETE_PATH = DATA_DIR / "videos_completo.csv"
-NEW_VIDEOS_PATH = DATA_DIR / "videos_nuevos.csv"
-CHANNELS_PATH = DATA_DIR / "canales.csv"
-FOLLOWS_PATH = DATA_DIR / "seguimientos_canales.csv"
+USERS_PATH = CURRENT_DATA_DIR / "usuarios.csv"
+VIDEOS_PATH = CURRENT_DATA_DIR / "videos.csv"
+VIDEOS_COMPLETE_PATH = CURRENT_DATA_DIR / "videos_completo.csv"
+NEW_VIDEOS_PATH = CURRENT_DATA_DIR / "videos_nuevos.csv"
+CHANNELS_PATH = CURRENT_DATA_DIR / "canales.csv"
+FOLLOWS_PATH = CURRENT_DATA_DIR / "seguimientos_canales.csv"
 
 
 def safe_mode(series: pd.Series, default: str = "unknown") -> str:

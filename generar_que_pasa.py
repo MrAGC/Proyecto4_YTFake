@@ -2,7 +2,7 @@ import pandas as pd
 import random
 
 # Cargar dataset
-df = pd.read_csv("videos.csv")
+df = pd.read_csv("data/actuales/videos.csv")
 
 # 100 palabras reales por categoría
 category_words = {
@@ -120,6 +120,6 @@ def generate_words(category):
 df["que_pasa"] = df["category"].apply(generate_words)
 
 # Guardar
-df.to_csv("videos_actualizado.csv", index=False)
+df.to_csv("data/viejos/enriquecimiento_legacy/videos_actualizado.csv", index=False)
 
 print("✅ Listo: 100 palabras por categoría y 5 por fila")

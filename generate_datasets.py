@@ -7,7 +7,8 @@ import pandas as pd
 
 
 DATA_DIR = Path("data")
-SOURCE_PATH = DATA_DIR / "youtube recommendation dataset.csv"
+CURRENT_DATA_DIR = DATA_DIR / "actuales"
+SOURCE_PATH = CURRENT_DATA_DIR / "youtube recommendation dataset.csv"
 RNG_SEED = 42
 
 
@@ -523,13 +524,13 @@ def main() -> None:
     user_profiles_df = build_user_profiles(users_df, follows_df, creators_df)
     new_uploads_df = build_new_uploads_table(channels_df, videos_df, rng)
 
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    users_df.to_csv(DATA_DIR / "usuarios.csv", index=False)
-    user_profiles_df.to_csv(DATA_DIR / "usuarios_perfiles.csv", index=False)
-    channels_df.to_csv(DATA_DIR / "canales.csv", index=False)
-    follows_df.to_csv(DATA_DIR / "seguimientos_canales.csv", index=False)
-    videos_df.to_csv(DATA_DIR / "videos.csv", index=False)
-    new_uploads_df.to_csv(DATA_DIR / "videos_nuevos.csv", index=False)
+    CURRENT_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    users_df.to_csv(CURRENT_DATA_DIR / "usuarios.csv", index=False)
+    user_profiles_df.to_csv(CURRENT_DATA_DIR / "usuarios_perfiles.csv", index=False)
+    channels_df.to_csv(CURRENT_DATA_DIR / "canales.csv", index=False)
+    follows_df.to_csv(CURRENT_DATA_DIR / "seguimientos_canales.csv", index=False)
+    videos_df.to_csv(CURRENT_DATA_DIR / "videos.csv", index=False)
+    new_uploads_df.to_csv(CURRENT_DATA_DIR / "videos_nuevos.csv", index=False)
 
     print()
     print("Generated datasets")

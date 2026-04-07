@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Cargar el dataset
-df = pd.read_csv("youtube recommendation dataset.csv")
+df = pd.read_csv("data/actuales/youtube recommendation dataset.csv")
 
 # Contar cuántas categorías únicas hay
 num_categorias = df["category"].nunique()
