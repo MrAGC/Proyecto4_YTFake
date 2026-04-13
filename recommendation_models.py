@@ -4,6 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Self
 
+import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 
@@ -66,6 +67,27 @@ def _clean_video_id_list(value: Any) -> list[int]:
     return cleaned
 
 
+def _clean_positive_int_list(value: Any) -> list[int]:
+    if value is None:
+        return []
+
+    if isinstance(value, int):
+        raw_values = [value]
+    else:
+        raw_values = value
+
+    cleaned: list[int] = []
+    seen: set[int] = set()
+    for raw in raw_values:
+        item = int(raw)
+        if item <= 0 or item in seen:
+            continue
+        seen.add(item)
+        cleaned.append(item)
+
+    return cleaned
+
+
 class ModeloDominio(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -74,17 +96,26 @@ class ModeloDominio(BaseModel):
     )
 
 
+class RolCuenta(str, Enum):
+    VIEWER = "viewer"
+    CREATOR = "creator"
+    VIEWER_CREATOR = "viewer_creator"
+
+
 class SuperficieRecomendacion(str, Enum):
     BUSQUEDA = "busqueda"
     HOME = "home"
     WATCH_NEXT = "watch_next"
     NOTIFICACION = "notificacion"
+    SUSCRIPCIONES = "suscripciones"
 
 
 class EstrategiaRetrieval(str, Enum):
     COSINE_SIMILARITY = "cosine_similarity"
     SESION_USUARIO = "sesion_usuario"
     VIDEO_ACTUAL = "video_actual"
+    CANALES_SEGUIDOS = "canales_seguidos"
+    VIDEOS_RECIENTES = "videos_recientes"
 
 
 class FuenteDescubrimiento(str, Enum):
@@ -92,19 +123,11 @@ class FuenteDescubrimiento(str, Enum):
     RECOMENDADO_HOME = "recomendado_home"
     RECOMENDADO_VIDEO = "recomendado_video"
     NOTIFICACION = "notificacion"
+    SUSCRIPCIONES = "suscripciones"
     DIRECTO = "directo"
 
 
 class SenalesEngagement(ModeloDominio):
-    """
-    Senales observables despues de que el usuario entra a un video.
-
-    Este bloque sirve tanto para:
-    - aprendizaje del perfil del usuario
-    - labels implicitos para ranking
-    - saber si un video recomendado fue realmente una buena recomendacion
-    """
-
     tiempo_visto_s: float = Field(default=0, ge=0)
     porcentaje_visto: float = Field(default=0, ge=0, le=1)
     like: bool = False
@@ -138,14 +161,6 @@ class SenalesEngagement(ModeloDominio):
 
 
 class ConsultaBusqueda(ModeloDominio):
-    """
-    Representa la fase de busqueda:
-    texto -> retrieval por cosine similarity -> ranking -> click final.
-
-    El click final permite construir preferencia pairwise:
-    video clicado > videos mostrados y no elegidos.
-    """
-
     texto: str = Field(min_length=1)
     timestamp: datetime
     retrieval_usado: EstrategiaRetrieval = EstrategiaRetrieval.COSINE_SIMILARITY
@@ -185,14 +200,6 @@ class ConsultaBusqueda(ModeloDominio):
 
 
 class ImpresionRecomendacion(ModeloDominio):
-    """
-    Un bloque de recomendaciones ya rankeadas en una superficie concreta.
-
-    La clave del flujo que has descrito es esta:
-    - `home` y `watch_next` comparten el ranker
-    - cambian solo las semillas del retrieval
-    """
-
     superficie: SuperficieRecomendacion
     timestamp: datetime
     retrieval_usado: EstrategiaRetrieval
@@ -233,16 +240,10 @@ class ImpresionRecomendacion(ModeloDominio):
 
 
 class InteraccionVideo(ModeloDominio):
-    """
-    Evento final de consumo del video.
-
-    Aqui guardamos lo que de verdad importa para ajustar el sistema:
-    - de donde salio el video
-    - si lo vio bastante
-    - si dio like, comento o se suscribio
-    """
-
     video_id: int = Field(gt=0)
+    channel_id: int | None = Field(default=None, gt=0)
+    creator_user_id: int | None = Field(default=None, gt=0)
+    published_at: datetime | None = None
     timestamp: datetime
     fuente: FuenteDescubrimiento
     senales: SenalesEngagement = Field(default_factory=SenalesEngagement)
@@ -253,6 +254,7 @@ class InteraccionVideo(ModeloDominio):
         return self.fuente in {
             FuenteDescubrimiento.RECOMENDADO_HOME,
             FuenteDescubrimiento.RECOMENDADO_VIDEO,
+            FuenteDescubrimiento.NOTIFICACION,
         }
 
     @computed_field(return_type=float)
@@ -278,16 +280,15 @@ class InteraccionVideo(ModeloDominio):
     def negative_label(self) -> bool:
         return self.senales.senal_negativa_clara and not self.vino_de_recomendacion
 
+    @computed_field(return_type=int)
+    @property
+    def edad_video_dias(self) -> int:
+        if self.published_at is None:
+            return 999
+        return max((self.timestamp - self.published_at).days, 0)
+
 
 class ParPreferencia(ModeloDominio):
-    """
-    Etiqueta lista para pairwise ranking.
-
-    Cada vez que el usuario elige un video dentro de un ranking mostrado,
-    generamos pares:
-    video ganador > video no elegido.
-    """
-
     user_id: int = Field(gt=0)
     superficie: SuperficieRecomendacion
     timestamp: datetime
@@ -296,29 +297,64 @@ class ParPreferencia(ModeloDominio):
     video_contexto_id: int | None = Field(default=None, gt=0)
 
 
-class UsuarioPerfil(ModeloDominio):
-    """
-    Modelo principal 1.
-
-    Guarda la memoria persistente del usuario para decidir:
-    - si esta en cold start o no
-    - que semillas usar para retrieval en `home`
-    - si tiene sentido enviarle notificaciones
-    """
-
+class SeguimientoCanal(ModeloDominio):
     user_id: int = Field(gt=0)
+    channel_id: int = Field(gt=0)
+    creator_user_id: int | None = Field(default=None, gt=0)
+    followed_at: datetime
+    source_video_id: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _avoid_self_follow(self) -> Self:
+        if self.creator_user_id is not None and self.user_id == self.creator_user_id:
+            raise ValueError("Un usuario no puede seguir su propio canal en este modelo.")
+        return self
+
+
+class CanalCreador(ModeloDominio):
+    channel_id: int = Field(gt=0)
+    owner_user_id: int = Field(gt=0)
+    nombre_canal: str = Field(min_length=1)
+    categoria_principal: str = Field(min_length=1)
+    creado_en: datetime | None = None
+    ultimo_video_publicado_en: datetime | None = None
+    total_videos: int = Field(default=0, ge=0)
+    total_views: int = Field(default=0, ge=0)
+    total_likes: int = Field(default=0, ge=0)
+    total_comments: int = Field(default=0, ge=0)
+    followers_total: int = Field(default=0, ge=0)
+
+    @computed_field(return_type=float)
+    @property
+    def likes_por_view(self) -> float:
+        if self.total_views == 0:
+            return 0.0
+        return round(self.total_likes / self.total_views, 4)
+
+    @computed_field(return_type=bool)
+    @property
+    def canal_establecido(self) -> bool:
+        return self.total_videos >= 5 or self.followers_total >= 100
+
+
+class UsuarioPerfil(ModeloDominio):
+    user_id: int = Field(gt=0)
+    rol_cuenta: RolCuenta = RolCuenta.VIEWER
     creado_en: datetime | None = None
     actualizado_en: datetime | None = None
     historial_busquedas: list[str] = Field(default_factory=list)
     videos_semilla_recientes: list[int] = Field(default_factory=list)
     categorias_preferidas: list[str] = Field(default_factory=list)
     parametros_preferidos: list[str] = Field(default_factory=list)
+    canales_seguidos: list[int] = Field(default_factory=list)
+    canal_propio_id: int | None = Field(default=None, gt=0)
     sesiones_totales: int = Field(default=0, ge=0)
     sesiones_solo_busqueda: int = Field(default=0, ge=0)
     impresiones_recomendadas: int = Field(default=0, ge=0)
     clics_en_recomendados: int = Field(default=0, ge=0)
     likes_dados: int = Field(default=0, ge=0)
     suscripciones_generadas: int = Field(default=0, ge=0)
+    videos_publicados: int = Field(default=0, ge=0)
     tiempo_total_visto_s: float = Field(default=0, ge=0)
     forzar_notificaciones: bool | None = None
 
@@ -337,6 +373,11 @@ class UsuarioPerfil(ModeloDominio):
     def _normalize_tag_lists(cls, value: Any) -> list[str]:
         return _clean_tag_list(value)
 
+    @field_validator("canales_seguidos", mode="before")
+    @classmethod
+    def _normalize_followed_channels(cls, value: Any) -> list[int]:
+        return _clean_positive_int_list(value)
+
     @model_validator(mode="after")
     def _check_sessions(self) -> Self:
         if self.sesiones_solo_busqueda > self.sesiones_totales:
@@ -349,6 +390,7 @@ class UsuarioPerfil(ModeloDominio):
         return (
             not self.historial_busquedas
             and not self.videos_semilla_recientes
+            and not self.canales_seguidos
             and self.tiempo_total_visto_s == 0
             and self.clics_en_recomendados == 0
         )
@@ -371,6 +413,11 @@ class UsuarioPerfil(ModeloDominio):
 
     @computed_field(return_type=bool)
     @property
+    def es_creador(self) -> bool:
+        return self.rol_cuenta in {RolCuenta.CREATOR, RolCuenta.VIEWER_CREATOR}
+
+    @computed_field(return_type=bool)
+    @property
     def debe_recibir_notificaciones(self) -> bool:
         if self.forzar_notificaciones is not None:
             return self.forzar_notificaciones
@@ -378,23 +425,13 @@ class UsuarioPerfil(ModeloDominio):
 
 
 class VideoCatalogo(ModeloDominio):
-    """
-    Modelo principal 2.
-
-    Es el documento que sirve a la vez para:
-    - busqueda semantica
-    - similitud entre videos
-    - ranking contextual
-
-    Los dos campos que comentabas como obligatorios aparecen aqui:
-    - `titulo`
-    - `parametros_contenido`
-    """
-
     video_id: int = Field(gt=0)
+    channel_id: int = Field(gt=0)
+    creator_user_id: int = Field(gt=0)
     titulo: str = ""
     category: str = Field(min_length=1)
     duracion_s: int = Field(ge=1)
+    published_at: datetime | None = None
     parametros_contenido: list[str] = Field(default_factory=list)
     total_views: int = Field(default=0, ge=0)
     total_likes: int = Field(default=0, ge=0)
@@ -447,18 +484,20 @@ class VideoCatalogo(ModeloDominio):
         )
         return round(score, 4)
 
+    @computed_field(return_type=int)
+    @property
+    def antiguedad_dias(self) -> int:
+        if self.published_at is None:
+            return 999
+        return max((datetime.utcnow() - self.published_at).days, 0)
+
+    @computed_field(return_type=float)
+    @property
+    def freshness_score(self) -> float:
+        return round(float(np.exp(-self.antiguedad_dias / 45)), 4)
+
 
 class SesionRecomendacion(ModeloDominio):
-    """
-    Modelo principal 3.
-
-    Este es el objeto que conecta todo el sistema:
-    - primer acceso -> feed vacio y dependencia de busqueda
-    - busqueda -> cosine similarity + ranking pairwise
-    - watch_next -> retrieval desde el video actual
-    - home futuro -> mismo ranker, pero retrieval desde la sesion previa del usuario
-    """
-
     session_id: str = Field(min_length=1)
     user_id: int = Field(gt=0)
     inicio: datetime
@@ -468,6 +507,7 @@ class SesionRecomendacion(ModeloDominio):
     retrieval_busqueda: EstrategiaRetrieval = EstrategiaRetrieval.COSINE_SIMILARITY
     retrieval_home: EstrategiaRetrieval = EstrategiaRetrieval.SESION_USUARIO
     retrieval_watch_next: EstrategiaRetrieval = EstrategiaRetrieval.VIDEO_ACTUAL
+    retrieval_suscripciones: EstrategiaRetrieval = EstrategiaRetrieval.CANALES_SEGUIDOS
     consultas: list[ConsultaBusqueda] = Field(default_factory=list)
     recomendaciones: list[ImpresionRecomendacion] = Field(default_factory=list)
     interacciones_video: list[InteraccionVideo] = Field(default_factory=list)
@@ -550,6 +590,29 @@ class SesionRecomendacion(ModeloDominio):
 
         return seeds
 
+    @computed_field(return_type=list[int])
+    @property
+    def canales_semilla_para_home(self) -> list[int]:
+        ordered = sorted(
+            self.interacciones_video,
+            key=lambda interaction: interaction.timestamp,
+            reverse=True,
+        )
+
+        channels: list[int] = []
+        seen: set[int] = set()
+        for interaction in ordered:
+            if interaction.channel_id is None or not interaction.positive_label:
+                continue
+            if interaction.channel_id in seen:
+                continue
+            seen.add(interaction.channel_id)
+            channels.append(interaction.channel_id)
+            if len(channels) == 5:
+                break
+
+        return channels
+
     @computed_field(return_type=float)
     @property
     def implicit_score_total(self) -> float:
@@ -560,12 +623,15 @@ class SesionRecomendacion(ModeloDominio):
 
 
 __all__ = [
+    "CanalCreador",
     "ConsultaBusqueda",
     "EstrategiaRetrieval",
     "FuenteDescubrimiento",
     "ImpresionRecomendacion",
     "InteraccionVideo",
     "ParPreferencia",
+    "RolCuenta",
+    "SeguimientoCanal",
     "SenalesEngagement",
     "SesionRecomendacion",
     "SuperficieRecomendacion",
