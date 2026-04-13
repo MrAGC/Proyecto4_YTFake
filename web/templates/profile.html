@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "_sidebar.html" import render_sidebar %}
+
+{% block title %}Mi perfil | YTFake{% endblock %}
+
+{% macro profile_video(video) -%}
+<a class="video-card" href="/watch/{{ video.video_id }}">
+  <div
+    class="thumb thumb-{{ (video.thumbnail_seed % 6) + 1 }}"
+    {% if video.thumbnail_url %}
+    style="background-image: linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52)), url('{{ video.thumbnail_url }}'); background-size: cover; background-position: center;"
+    {% endif %}
+  >
+    <span class="duration">{{ video.duration_text }}</span>
+  </div>
+  <div class="video-meta">
+    <h3>{{ video.title }}</h3>
+    <p>{{ video.channel_name }}</p>
+    <p>{{ video.category }}</p>
+  </div>
+</a>
+{%- endmacro %}
+
+{% block body %}
+<header class="topbar">
+  <div class="brand-block">
+    <button type="button" class="menu-button" data-sidebar-toggle>Menu</button>
+    <a class="brand" href="/home">
+      <span class="brand-mark"></span>
+      <span>YTFake</span>
+    </a>
+  </div>
+  <div></div>
+  <div class="topbar-actions">
+    <a href="/home" class="ghost-link">Inicio</a>
+  </div>
+</header>
+
+<main class="app-shell">
+  {{ render_sidebar(user, sidebar, active_page) }}
+
+  <section class="content-shell">
+    <section class="placeholder-card">
+      <p class="eyebrow">Perfil</p>
+      <h1>Esta es tu cuenta simulada dentro de la demo.</h1>
+      <div class="placeholder-points">
+        <span>Rol: {{ user.account_label }}</span>
+        <span>Canal: {{ user.owned_channel_name }}</span>
+        <span>{{ user.uploaded_videos }} videos asociados</span>
+        <span>{{ user.following_channels }} follows</span>
+      </div>
+      <p>
+        Esta pantalla separa claramente tu cuenta del canal de cualquier video recomendado.
+        Lo de arriba nunca era "tu canal"; era el mejor video para tu home en ese momento.
+      </p>
+    </section>
+
+    <section class="shelf">
+      <div class="section-header">
+        <h2>Videos asociados a esta cuenta</h2>
+        <p>Si el usuario es creador, aqui aparecen sus videos mas recientes.</p>
+      </div>
+      {% if created_videos %}
+      <div class="row-grid">
+        {% for video in created_videos %}
+          {{ profile_video(video) }}
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="placeholder-card slim-card">
+        <p>Esta cuenta ahora mismo actua como espectador y no tiene videos propios visibles.</p>
+      </div>
+      {% endif %}
+    </section>
+  </section>
+</main>
+{% endblock %}

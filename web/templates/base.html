@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}YTFake{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+  </head>
+  <body class="sidebar-collapsed">
+    {% block body %}{% endblock %}
+    <script>
+      (function () {
+        const toggle = document.querySelector("[data-sidebar-toggle]");
+        if (!toggle) return;
+        toggle.addEventListener("click", function () {
+          document.body.classList.toggle("sidebar-collapsed");
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -112,6 +112,9 @@ class SuperficieRecomendacion(str, Enum):
 
 class EstrategiaRetrieval(str, Enum):
     COSINE_SIMILARITY = "cosine_similarity"
+    USER_BASED_CF = "user_based_cf"
+    ITEM_BASED_CF = "item_based_cf"
+    MULTI_SOURCE_HOME = "multi_source_home"
     SESION_USUARIO = "sesion_usuario"
     VIDEO_ACTUAL = "video_actual"
     CANALES_SEGUIDOS = "canales_seguidos"
@@ -505,8 +508,8 @@ class SesionRecomendacion(ModeloDominio):
     feed_inicial_vacio: bool = False
     ranker_compartido: str = "pairwise_ranker_contextual"
     retrieval_busqueda: EstrategiaRetrieval = EstrategiaRetrieval.COSINE_SIMILARITY
-    retrieval_home: EstrategiaRetrieval = EstrategiaRetrieval.SESION_USUARIO
-    retrieval_watch_next: EstrategiaRetrieval = EstrategiaRetrieval.VIDEO_ACTUAL
+    retrieval_home: EstrategiaRetrieval = EstrategiaRetrieval.MULTI_SOURCE_HOME
+    retrieval_watch_next: EstrategiaRetrieval = EstrategiaRetrieval.ITEM_BASED_CF
     retrieval_suscripciones: EstrategiaRetrieval = EstrategiaRetrieval.CANALES_SEGUIDOS
     consultas: list[ConsultaBusqueda] = Field(default_factory=list)
     recomendaciones: list[ImpresionRecomendacion] = Field(default_factory=list)

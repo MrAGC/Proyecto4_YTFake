@@ -76,3 +76,51 @@ El script genera la salida en `reco_output/` y, si esa carpeta esta bloqueada, e
 - Se marca como positivo un par usuario-video si hay alta retencion o accion explicita.
 - Se marcan negativos claros para el dataset de ranking cuando hay rebote y ninguna accion positiva.
 
+## App web
+
+La app actual conecta el `retrieval` con el `ranker` y expone una demo web con:
+
+- login simple por usuario
+- modo invitado local con cookie persistente en el mismo navegador/equipo
+- home con estilo YouTube + listas tipo Netflix
+- barra lateral con perfil simulado, historial de sesion e historial base
+- pagina de visionado con `watch-next`
+- mezcla entre perfil historico y sesion actual para recalcular la home al volver del visionado
+- buscador preparado como placeholder visual para conectar la busqueda mas adelante
+- persistencia temporal de eventos de sesion en `data/local_session_events.csv`
+
+### Arranque
+
+Instala dependencias del proyecto y lanza:
+
+```powershell
+.\.venv\Scripts\python.exe main.py
+```
+
+La app queda disponible en:
+
+- `http://127.0.0.1:8000/login`
+
+### Modelos usados por la app
+
+- `models/retrieval_multisource_v1/`: retrieval para home
+- `models/ranker_compare_v1/pairwise_xgboost/`: ranker principal
+
+### Nota sobre el buscador
+
+Se revisaron las ramas remotas `origin/feature` y `origin/FeatureEngineering` y el repo actual. No hay una implementacion reutilizable del buscador todavia, asi que la interfaz queda preparada para conectarla en la siguiente fase.
+
+## Miniaturas
+
+Para completar `thumbnail_url` y `thumbnail_source` en `data/videos.csv`:
+
+```powershell
+.\.venv\Scripts\python.exe update_video_thumbnails.py --limit 100
+```
+
+Orden de resolucion:
+
+- Google Custom Search API, si defines `GOOGLE_CSE_API_KEY` y `GOOGLE_CSE_CX`
+- scraping best-effort de Google Images
+- fallback a miniatura de YouTube si Google bloquea la respuesta
+

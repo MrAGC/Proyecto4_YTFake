@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Entrar | YTFake{% endblock %}
+
+{% block body %}
+<main class="login-shell">
+  <section class="login-hero login-hero-simple">
+    <div class="login-copy">
+      <p class="eyebrow">YTFake Demo</p>
+      <h1>Entra o continua como invitado.</h1>
+      <p class="subcopy">
+        Si entras con usuario cargamos tu perfil del dataset. Si continuas como invitado,
+        guardamos solo una sesion local en este equipo/navegador para personalizar la home.
+      </p>
+      <div class="model-badges">
+        <span>retrieval + ranker</span>
+        <span>historial de sesion</span>
+        <span>home dinamica</span>
+      </div>
+    </div>
+
+    <form action="/login" method="post" class="login-panel">
+      <label for="user_id">Iniciar sesion</label>
+      <input id="user_id" name="user_id" type="number" min="1" required placeholder="Ej: 3688">
+      <button type="submit">Entrar</button>
+      <p class="panel-note">Usa un `user_id` del dataset para cargar perfil historico y follows.</p>
+    </form>
+
+    <form action="/guest-login" method="post" class="login-panel guest-panel">
+      <label>Continuar como invitado</label>
+      <p class="panel-note">
+        Se guardara una sesion local temporal. No tendras funciones de cuenta como subir videos,
+        perfil de creador o historial persistente de verdad.
+      </p>
+      <button type="submit">Continuar como invitado</button>
+    </form>
+  </section>
+</main>
+{% endblock %}

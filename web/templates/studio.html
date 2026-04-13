@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_sidebar.html" import render_sidebar %}
+
+{% block title %}Subir videos | YTFake{% endblock %}
+
+{% block body %}
+<header class="topbar">
+  <div class="brand-block">
+    <button type="button" class="menu-button" data-sidebar-toggle>Menu</button>
+    <a class="brand" href="/home">
+      <span class="brand-mark"></span>
+      <span>YTFake</span>
+    </a>
+  </div>
+  <div></div>
+  <div class="topbar-actions">
+    <a href="/home" class="ghost-link">Inicio</a>
+  </div>
+</header>
+
+<main class="app-shell">
+  {{ render_sidebar(user, sidebar, active_page) }}
+
+  <section class="content-shell">
+    <section class="placeholder-card">
+      <p class="eyebrow">Studio</p>
+      <h1>La superficie para subir videos ya esta reservada.</h1>
+      <p>
+        La siguiente fase es crear el flujo de subida y meter esos videos nuevos en el catalogo,
+        con fuerza por frescura para que el retrieval los considere aunque aun no tengan historial.
+      </p>
+      <div class="placeholder-points">
+        <span>Canal: {{ user.owned_channel_name }}</span>
+        <span>{{ user.uploaded_videos }} videos actuales</span>
+        <span>Cold-start listo para la siguiente iteracion</span>
+      </div>
+      <a class="primary-button disabled-button" href="#">Subir video (proxima fase)</a>
+    </section>
+
+    {% if created_videos %}
+    <section class="shelf">
+      <div class="section-header">
+        <h2>Tu catalogo actual</h2>
+        <p>Vista previa de los videos ya asociados a esta cuenta.</p>
+      </div>
+      <div class="row-grid">
+        {% for video in created_videos %}
+        <a class="video-card" href="/watch/{{ video.video_id }}">
+          <div
+            class="thumb thumb-{{ (video.thumbnail_seed % 6) + 1 }}"
+            {% if video.thumbnail_url %}
+            style="background-image: linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52)), url('{{ video.thumbnail_url }}'); background-size: cover; background-position: center;"
+            {% endif %}
+          >
+            <span class="duration">{{ video.duration_text }}</span>
+          </div>
+          <div class="video-meta">
+            <h3>{{ video.title }}</h3>
+            <p>{{ video.channel_name }}</p>
+            <p>{{ video.category }}</p>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

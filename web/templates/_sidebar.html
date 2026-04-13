@@ -1,0 +1,71 @@
+{% macro render_sidebar(user, sidebar, active_page) -%}
+<aside class="sidebar">
+  <section class="sidebar-card">
+    <p class="eyebrow">Cuenta simulada</p>
+    <h2>Usuario {{ user.user_id }}</h2>
+    <p>{{ user.account_label }} | {{ user.owned_channel_name }}</p>
+    <div class="sidebar-pills">
+      <span>{{ user.following_channels }} canales seguidos</span>
+      <span>{{ user.uploaded_videos }} videos asociados</span>
+      <span>{{ sidebar["session_views"] }} vistas en sesion</span>
+    </div>
+  </section>
+
+  <nav class="sidebar-card sidebar-nav">
+    <a href="/home" class="{% if active_page == 'home' %}nav-link active{% else %}nav-link{% endif %}">Inicio</a>
+    <a href="/profile" class="{% if active_page == 'profile' %}nav-link active{% else %}nav-link{% endif %}">Mi perfil</a>
+    <a href="/studio" class="{% if active_page == 'studio' %}nav-link active{% else %}nav-link{% endif %}">Subir videos</a>
+    <a href="/search" class="{% if active_page == 'search' %}nav-link active{% else %}nav-link{% endif %}">Buscador</a>
+  </nav>
+
+  <section class="sidebar-card">
+    <p class="eyebrow">Foco actual</p>
+    <h3>{{ sidebar["session_focus"] }}</h3>
+    <p>La sesion empuja la home, pero no sustituye tu base historica.</p>
+  </section>
+
+  <section class="sidebar-card">
+    <div class="sidebar-section-head">
+      <h3>Historial de sesion</h3>
+      <span>{{ sidebar["session_history"] | length }}</span>
+    </div>
+    {% if sidebar["session_history"] %}
+      <div class="history-list">
+        {% for item in sidebar["session_history"] %}
+        <a class="history-item" href="/watch/{{ item.video_id }}">
+          <div>
+            <strong>{{ item.title }}</strong>
+            <p>{{ item.channel_name }}</p>
+          </div>
+          <span>{{ item.category }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-copy">Todavia no has abierto videos en esta sesion.</p>
+    {% endif %}
+  </section>
+
+  <section class="sidebar-card">
+    <div class="sidebar-section-head">
+      <h3>Base historica</h3>
+      <span>{{ sidebar["historical_history"] | length }}</span>
+    </div>
+    {% if sidebar["historical_history"] %}
+      <div class="history-list">
+        {% for item in sidebar["historical_history"] %}
+        <a class="history-item" href="/watch/{{ item.video_id }}">
+          <div>
+            <strong>{{ item.title }}</strong>
+            <p>{{ item.channel_name }}</p>
+          </div>
+          <span>{{ item.category }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-copy">No hay historial historico disponible para este usuario.</p>
+    {% endif %}
+  </section>
+</aside>
+{%- endmacro %}

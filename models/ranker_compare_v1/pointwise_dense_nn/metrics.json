@@ -1,0 +1,37 @@
+{
+  "valid": {
+    "rows": 59961,
+    "positive_rate": 0.501109,
+    "roc_auc": 0.96879,
+    "average_precision": 0.959881,
+    "log_loss": 0.185629,
+    "precision_at_1": 0.886678,
+    "precision_at_5": 0.50329,
+    "precision_at_10": 0.50224,
+    "ndcg_at_10": 0.994829,
+    "candidate_users": 28900,
+    "mean_candidates_per_user": 2.074775,
+    "median_candidates_per_user": 2.0,
+    "max_candidates_per_user": 10
+  },
+  "test": {
+    "rows": 60021,
+    "positive_rate": 0.499325,
+    "roc_auc": 0.826307,
+    "average_precision": 0.797232,
+    "log_loss": 1.127547,
+    "precision_at_1": 0.827005,
+    "precision_at_5": 0.499055,
+    "precision_at_10": 0.49843,
+    "ndcg_at_10": 0.970518,
+    "candidate_users": 28995,
+    "mean_candidates_per_user": 2.070047,
+    "median_candidates_per_user": 2.0,
+    "max_candidates_per_user": 10
+  },
+  "training": {
+    "train_rows": 480018,
+    "feature_count": 64,
+    "iterations": 18
+  }
+}

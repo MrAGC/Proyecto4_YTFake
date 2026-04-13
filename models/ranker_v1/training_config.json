@@ -1,0 +1,26 @@
+{
+  "dataset": "reco_output_v2\\training_dataset_balanced_v1.csv",
+  "categorical_columns": [
+    "surface",
+    "user_favorite_category",
+    "user_favorite_device",
+    "user_favorite_time_slot",
+    "user_recent_favorite_category",
+    "video_category"
+  ],
+  "excluded_columns": [
+    "anchor_timestamp",
+    "channel_id",
+    "creator_user_id",
+    "example_source",
+    "label",
+    "split",
+    "user_id",
+    "video_id"
+  ],
+  "notes": [
+    "Trainer GPU para el ranker compartido.",
+    "Si existe un dataset preparado balanceado, se usa por defecto.",
+    "Sigue siendo un pipeline offline y no garantiza point-in-time safety completa."
+  ]
+}

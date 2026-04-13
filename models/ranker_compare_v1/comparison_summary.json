@@ -1,0 +1,85 @@
+{
+  "best_model_by_test_ndcg_at_10": "pairwise_xgboost",
+  "pointwise_dense_nn": {
+    "valid": {
+      "rows": 59961,
+      "positive_rate": 0.501109,
+      "roc_auc": 0.96879,
+      "average_precision": 0.959881,
+      "log_loss": 0.185629,
+      "precision_at_1": 0.886678,
+      "precision_at_5": 0.50329,
+      "precision_at_10": 0.50224,
+      "ndcg_at_10": 0.994829,
+      "candidate_users": 28900,
+      "mean_candidates_per_user": 2.074775,
+      "median_candidates_per_user": 2.0,
+      "max_candidates_per_user": 10
+    },
+    "test": {
+      "rows": 60021,
+      "positive_rate": 0.499325,
+      "roc_auc": 0.826307,
+      "average_precision": 0.797232,
+      "log_loss": 1.127547,
+      "precision_at_1": 0.827005,
+      "precision_at_5": 0.499055,
+      "precision_at_10": 0.49843,
+      "ndcg_at_10": 0.970518,
+      "candidate_users": 28995,
+      "mean_candidates_per_user": 2.070047,
+      "median_candidates_per_user": 2.0,
+      "max_candidates_per_user": 10
+    },
+    "training": {
+      "train_rows": 480018,
+      "feature_count": 64,
+      "iterations": 18
+    }
+  },
+  "pairwise_xgboost": {
+    "valid": {
+      "rows": 54110,
+      "positive_rate": 0.500055,
+      "roc_auc": 0.981948,
+      "average_precision": 0.972195,
+      "log_loss": null,
+      "precision_at_1": 0.97783,
+      "precision_at_5": 0.50137,
+      "precision_at_10": 0.500054,
+      "ndcg_at_10": 0.992573,
+      "candidate_users": 23049,
+      "mean_candidates_per_user": 2.347607,
+      "median_candidates_per_user": 2.0,
+      "max_candidates_per_user": 10
+    },
+    "test": {
+      "rows": 53974,
+      "positive_rate": 0.50013,
+      "roc_auc": 0.977433,
+      "average_precision": 0.962763,
+      "log_loss": null,
+      "precision_at_1": 0.973418,
+      "precision_at_5": 0.501434,
+      "precision_at_10": 0.500086,
+      "ndcg_at_10": 0.991004,
+      "candidate_users": 22948,
+      "mean_candidates_per_user": 2.352013,
+      "median_candidates_per_user": 2.0,
+      "max_candidates_per_user": 10
+    },
+    "training": {
+      "train_rows": 475609,
+      "feature_count": 64,
+      "device": "cuda",
+      "best_iteration": 73,
+      "train_groups": 89108,
+      "valid_groups": 23049
+    }
+  },
+  "notes": [
+    "PointWise Dense NN usa el dataset balanceado y puntua cada candidato por separado.",
+    "PairWise XGBoost usa objective rank:pairwise y el contexto extra del dataset.",
+    "La comparacion se debe leer sobre todo con ndcg@10 y precision@1, no solo con AUC."
+  ]
+}

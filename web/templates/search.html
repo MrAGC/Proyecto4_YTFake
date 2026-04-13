@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_sidebar.html" import render_sidebar %}
+
+{% block title %}Buscador | YTFake{% endblock %}
+
+{% block body %}
+<header class="topbar">
+  <div class="brand-block">
+    <button type="button" class="menu-button" data-sidebar-toggle>Menu</button>
+    <a class="brand" href="/home">
+      <span class="brand-mark"></span>
+      <span>YTFake</span>
+    </a>
+  </div>
+  <form class="search-form" action="/search" method="get">
+    <input type="search" name="q" value="{{ query }}" placeholder="Buscar videos, temas o canales">
+    <button type="submit" disabled>Buscar</button>
+  </form>
+  <div class="topbar-actions">
+    <a href="/home" class="ghost-link">Inicio</a>
+  </div>
+</header>
+
+<main class="app-shell">
+  {{ render_sidebar(user, sidebar, active_page) }}
+
+  <section class="content-shell">
+    <div class="placeholder-card">
+      <p class="eyebrow">Buscador</p>
+      <h1>La interfaz esta preparada, pero la busqueda real va en la siguiente fase.</h1>
+      <p>
+        No habia una implementacion reutilizable en las ramas del repo. El siguiente paso es
+        conectar retrieval textual y luego pasar los candidatos por el mismo ranker.
+      </p>
+      <div class="placeholder-points">
+        <span>Usuario {{ user.user_id }}</span>
+        <span>{{ user.session_focus }}</span>
+        <span>Ranker compartido listo</span>
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock %}

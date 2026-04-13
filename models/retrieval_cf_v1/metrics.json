@@ -1,0 +1,78 @@
+{
+  "valid": {
+    "user_based_cf": {
+      "hit@10": 0.000151,
+      "hit@50": 0.001232,
+      "recall@10": 0.000151,
+      "recall@50": 0.001232,
+      "mrr@10": 4.1e-05,
+      "ndcg@10": 6.6e-05,
+      "evaluated_users": 99065,
+      "coverage@50": 0.99996
+    },
+    "item_based_cf": {
+      "hit@10": 0.000262,
+      "hit@50": 0.0011,
+      "recall@10": 0.000262,
+      "recall@50": 0.0011,
+      "mrr@10": 7.4e-05,
+      "ndcg@10": 0.000116,
+      "evaluated_users": 99065,
+      "coverage@50": 1.0
+    },
+    "hybrid_cf": {
+      "hit@10": 0.000212,
+      "hit@50": 0.001262,
+      "recall@10": 0.000212,
+      "recall@50": 0.001262,
+      "mrr@10": 4.6e-05,
+      "ndcg@10": 8.4e-05,
+      "evaluated_users": 99065,
+      "coverage@50": 1.0
+    }
+  },
+  "test": {
+    "user_based_cf": {
+      "hit@10": 0.00019,
+      "hit@50": 0.000902,
+      "recall@10": 0.00019,
+      "recall@50": 0.000902,
+      "mrr@10": 6.3e-05,
+      "ndcg@10": 9.2e-05,
+      "evaluated_users": 99807,
+      "coverage@50": 0.99998
+    },
+    "item_based_cf": {
+      "hit@10": 0.0002,
+      "hit@50": 0.001022,
+      "recall@10": 0.0002,
+      "recall@50": 0.001022,
+      "mrr@10": 8.3e-05,
+      "ndcg@10": 0.00011,
+      "evaluated_users": 99807,
+      "coverage@50": 1.0
+    },
+    "hybrid_cf": {
+      "hit@10": 0.00019,
+      "hit@50": 0.000982,
+      "recall@10": 0.00019,
+      "recall@50": 0.000982,
+      "mrr@10": 6.2e-05,
+      "ndcg@10": 9.1e-05,
+      "evaluated_users": 99807,
+      "coverage@50": 1.0
+    }
+  },
+  "dataset": {
+    "train_rows": 653712,
+    "valid_rows": 99065,
+    "test_rows": 99807,
+    "train_users": 99977,
+    "train_videos": 50000
+  },
+  "notes": [
+    "User-based CF es la retrieval principal.",
+    "Item-based CF es la retrieval secundaria para rellenar y dar continuidad.",
+    "La variante hybrid_cf usa score principal mas refuerzo del item-based."
+  ]
+}

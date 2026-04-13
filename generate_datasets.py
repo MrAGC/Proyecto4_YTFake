@@ -8,6 +8,10 @@ import pandas as pd
 
 DATA_DIR = Path("data")
 SOURCE_PATH = DATA_DIR / "youtube recommendation dataset.csv"
+CURATED_TITLE_CANDIDATES = [
+    DATA_DIR / "Nuevo" / "videos_con_titulos.csv",
+    DATA_DIR / "nuevo" / "videos_con_titulos.csv",
+]
 RNG_SEED = 42
 
 
@@ -25,6 +29,17 @@ def parse_timestamps(raw_timestamp: pd.Series) -> pd.Series:
         numeric_vals = pd.to_numeric(raw_timestamp[epoch_mask], errors="coerce")
         parsed.loc[epoch_mask] = pd.to_datetime(numeric_vals, unit="s", errors="coerce")
     return parsed
+
+
+def load_curated_titles() -> pd.DataFrame:
+    for candidate_path in CURATED_TITLE_CANDIDATES:
+        if candidate_path.exists():
+            curated = pd.read_csv(candidate_path, usecols=["video_id", "titulo"])
+            curated["video_id"] = pd.to_numeric(curated["video_id"], errors="coerce").fillna(0).astype(int)
+            curated["titulo"] = curated["titulo"].fillna("").astype(str)
+            curated = curated.loc[curated["video_id"].gt(0)].drop_duplicates("video_id", keep="last")
+            return curated
+    return pd.DataFrame(columns=["video_id", "titulo"])
 
 
 def assign_creators_to_videos(
@@ -525,6 +540,7 @@ def main() -> None:
 
     final_videos_df = pd.concat([videos_df, new_uploads_df], ignore_index=True, sort=False)
     final_videos_df = final_videos_df.sort_values("video_id").reset_index(drop=True)
+    curated_titles = load_curated_titles()
 
     existing_videos_path = DATA_DIR / "videos.csv"
     if existing_videos_path.exists():
@@ -559,6 +575,12 @@ def main() -> None:
             "is_cold_start_video",
         ]
         final_videos_df = final_videos_df[ordered_columns].copy()
+
+    if not curated_titles.empty:
+        final_videos_df = final_videos_df.merge(curated_titles, on="video_id", how="left", suffixes=("", "_curado"))
+        curated_mask = final_videos_df["titulo_curado"].fillna("").str.strip().ne("")
+        final_videos_df.loc[curated_mask, "titulo"] = final_videos_df.loc[curated_mask, "titulo_curado"]
+        final_videos_df = final_videos_df.drop(columns=["titulo_curado"])
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     users_df.to_csv(DATA_DIR / "usuarios.csv", index=False)

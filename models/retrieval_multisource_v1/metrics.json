@@ -1,0 +1,24 @@
+{
+  "valid": {
+    "hit@10": 0.000262,
+    "hit@50": 0.001282,
+    "category_hit@50": 0.997709,
+    "mrr@10": 7.1e-05,
+    "ndcg@10": 0.000181,
+    "mean_candidates_returned": 50.0,
+    "evaluated_users": 99065
+  },
+  "test": {
+    "hit@10": 0.000581,
+    "hit@50": 0.002004,
+    "category_hit@50": 0.997565,
+    "mrr@10": 0.000197,
+    "ndcg@10": 0.000453,
+    "mean_candidates_returned": 50.0,
+    "evaluated_users": 99807
+  },
+  "notes": [
+    "Retrieval multi-source para home: mezcla CF, categoria reciente, canales activos y frescura.",
+    "La metrica exacta por item sigue siendo dura; category_hit@50 es la lectura mas util para home."
+  ]
+}
