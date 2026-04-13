@@ -31,8 +31,8 @@
     </a>
   </div>
   <form class="search-form" action="/search" method="get">
-    <input type="search" name="q" placeholder="Buscar videos, temas o canales" disabled>
-    <button type="submit" disabled>Buscar</button>
+    <input type="search" name="q" placeholder="Buscar videos, temas o canales">
+    <button type="submit">Buscar</button>
   </form>
   <div class="topbar-actions">
     <span class="stack-badge">{{ model_stack }}</span>
@@ -40,7 +40,7 @@
   </div>
 </header>
 
-<main class="app-shell">
+<main class="app-shell watch-app-shell">
   {{ render_sidebar(user, sidebar, active_page) }}
 
   <section class="content-shell">
@@ -60,11 +60,35 @@
         <div class="player-meta">
           <p class="eyebrow">Video</p>
           <h1>{{ video.title }}</h1>
-          <p>{{ video.channel_name }} | {{ video.category }}</p>
           <p>{{ video.views_text }} | {{ video.freshness_text }}</p>
-          <div class="hero-actions">
-            <a class="primary-button" href="/home">Volver al inicio</a>
-            <a class="secondary-button" href="/profile">Mi perfil</a>
+          <div class="watch-channel-row">
+            <div class="channel-summary">
+              <span class="avatar small-avatar">{{ video.channel_name[:1] | upper }}</span>
+              <div>
+                <strong>{{ video.channel_name }}</strong>
+                <p>{{ video.category }}</p>
+              </div>
+            </div>
+            <div class="subscribe-control">
+              <button class="subscribe-button" type="button" data-toggle-active data-endpoint="/api/channels/{{ video.channel_id }}/subscribe" aria-pressed="false">Suscribirse</button>
+              <span class="engagement-count">&#128276; {{ video.channel_followers_text }}</span>
+            </div>
+          </div>
+          <div class="watch-actions">
+            <div class="engagement-control">
+              <button class="icon-action-button" type="button" data-toggle-active data-endpoint="/api/videos/{{ video.video_id }}/like" aria-pressed="false" aria-label="Me gusta">&#128077;</button>
+              <span class="engagement-count">{{ video.likes_text }}</span>
+            </div>
+            <button class="metric-button" type="button">Compartir</button>
+            <a class="metric-button" href="/home">Volver al inicio</a>
+            <a class="metric-button" href="/profile">Mi perfil</a>
+          </div>
+          <div class="comments-panel">
+            <div class="comments-head">
+              <h2>{{ video.comments_text }}</h2>
+              <span>Demo sin listado de comentarios</span>
+            </div>
+            <p>No mostramos comentarios individuales en esta fase; solo usamos el contador agregado del dataset.</p>
           </div>
         </div>
       </section>
@@ -74,11 +98,23 @@
           <h2>Siguiente</h2>
           <p>La sesion ya cuenta para la siguiente vuelta a la home.</p>
         </div>
-        <div class="compact-list">
-          {% for item in next_up %}
+        <div class="watch-filter-tabs" role="tablist" aria-label="Filtros de recomendaciones">
+          {% for group in next_groups %}
+          <button
+            class="watch-filter-tab{% if loop.first %} active{% endif %}"
+            type="button"
+            data-watch-tab="{{ group.key }}"
+            aria-selected="{{ 'true' if loop.first else 'false' }}"
+          >{{ group.title }}</button>
+          {% endfor %}
+        </div>
+        {% for group in next_groups %}
+        <div class="compact-list watch-tab-panel{% if loop.first %} active{% endif %}" data-watch-panel="{{ group.key }}">
+          {% for item in group["items"] %}
             {{ compact_card(item) }}
           {% endfor %}
         </div>
+        {% endfor %}
       </aside>
     </div>
   </section>

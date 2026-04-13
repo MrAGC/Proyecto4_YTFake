@@ -4,6 +4,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -109,10 +110,12 @@ def watch_page(video_id: int, request: Request):
         return RedirectResponse(url="/login", status_code=302)
 
     service = get_recommendation_service()
+    source = request.query_params.get("source", "direct")
+    query = request.query_params.get("q", "")
     if user_id is not None:
-        service.register_view(user_id, video_id)
+        service.register_view(user_id, video_id, source=source, query=query)
     else:
-        service.register_guest_view(guest_id, video_id)
+        service.register_guest_view(guest_id, video_id, source=source, query=query)
     try:
         page = service.watch_page(user_id, video_id) if user_id is not None else service.guest_watch_page(guest_id, video_id)
     except KeyError as exc:
@@ -146,6 +149,51 @@ def search_page(request: Request):
             **page,
         },
     )
+
+
+@app.get("/api/search/suggest")
+def search_suggest(request: Request):
+    user_id = current_user_id(request)
+    guest_id = current_guest_id(request)
+    if user_id is None and guest_id is None:
+        return JSONResponse(status_code=401, content={"suggestions": []})
+
+    query = request.query_params.get("q", "")
+    service = get_recommendation_service()
+    suggestions = service.search_suggestions(query, limit=8)
+    return {"suggestions": suggestions}
+
+
+@app.post("/api/videos/{video_id}/like")
+def like_video(video_id: int, request: Request):
+    user_id = current_user_id(request)
+    guest_id = current_guest_id(request)
+    if user_id is None and guest_id is None:
+        return JSONResponse(status_code=401, content={"ok": False})
+
+    service = get_recommendation_service()
+    try:
+        if user_id is not None:
+            return service.register_like(user_id, video_id)
+        return service.register_guest_like(guest_id, video_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/channels/{channel_id}/subscribe")
+def subscribe_channel(channel_id: int, request: Request):
+    user_id = current_user_id(request)
+    guest_id = current_guest_id(request)
+    if user_id is None and guest_id is None:
+        return JSONResponse(status_code=401, content={"ok": False})
+
+    service = get_recommendation_service()
+    try:
+        if user_id is not None:
+            return service.register_subscription(user_id, channel_id)
+        return service.register_guest_subscription(guest_id, channel_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/profile")

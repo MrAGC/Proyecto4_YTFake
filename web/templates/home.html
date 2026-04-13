@@ -17,9 +17,12 @@
     {% endif %}
   </div>
   <div class="video-meta">
-    <h3>{{ video.title }}</h3>
-    <p>{{ video.channel_name }}</p>
-    <p>{{ video.views_text }} | {{ video.freshness_text }}</p>
+    <span class="channel-avatar">{{ video.channel_name[:1] | upper }}</span>
+    <div>
+      <h3>{{ video.title }}</h3>
+      <p>{{ video.channel_name }}</p>
+      <p>{{ video.views_text }} | {{ video.freshness_text }}</p>
+    </div>
   </div>
 </a>
 {%- endmacro %}
@@ -34,8 +37,8 @@
     </a>
   </div>
   <form class="search-form" action="/search" method="get">
-    <input type="search" name="q" placeholder="Buscar videos, temas o canales" disabled>
-    <button type="submit" disabled>Buscar</button>
+    <input type="search" name="q" placeholder="Buscar videos, temas o canales">
+    <button type="submit">Buscar</button>
   </form>
   <div class="topbar-actions">
     <span class="stack-badge">{{ model_stack }}</span>
@@ -43,65 +46,40 @@
   </div>
 </header>
 
-<main class="app-shell">
+<main class="app-shell home-app-shell">
   {{ render_sidebar(user, sidebar, active_page) }}
 
-  <section class="content-shell">
-    {% if hero_video %}
-    <section class="hero-panel">
-      <div class="hero-copy">
-        <p class="eyebrow">Inicio personalizado</p>
-        <h1>{{ hero_video.title }}</h1>
-        <p class="hero-subcopy">
-          {{ hero_video.category }} | {{ hero_video.channel_name }} | {{ hero_video.views_text }}
-        </p>
-        <div class="hero-stats">
-          <span>Base: {{ user.favorite_category }}</span>
-          <span>Reciente historico: {{ user.recent_category }}</span>
-          <span>{{ user.session_focus }}</span>
-        </div>
-        <div class="hero-actions">
-          <a class="primary-button" href="/watch/{{ hero_video.video_id }}">Ver ahora</a>
-          <a class="secondary-button" href="/profile">Mi perfil</a>
-        </div>
-      </div>
-      <div
-        class="hero-thumb hero-{{ (hero_video.thumbnail_seed % 6) + 1 }}"
-        {% if hero_video.thumbnail_url %}
-        style="background-image: linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52)), url('{{ hero_video.thumbnail_url }}'); background-size: cover; background-position: center;"
-        {% endif %}
-      >
-        <div class="hero-overlay">
-          <span class="duration">{{ hero_video.duration_text }}</span>
-        </div>
-      </div>
+  <section class="content-shell youtube-home">
+    {% if needs_search %}
+    <section class="empty-home">
+      <p class="eyebrow">Cuenta nueva</p>
+      <h1>Empieza buscando para crear tus recomendaciones.</h1>
+      <p>
+        Todavia no hay historial suficiente para recomendar con sentido. Busca un tema,
+        abre algunos videos y al volver al inicio la home se generara con esa sesion.
+      </p>
+      <form class="empty-search-form" action="/search" method="get">
+        <input type="search" name="q" placeholder="Ej: tecnologia, musica, gaming, noticias" autofocus>
+        <button type="submit">Buscar videos</button>
+      </form>
     </section>
-    {% endif %}
-
-    <section class="insight-strip">
-      <div>
-        <span class="insight-label">Usuario</span>
-        <strong>{{ user.user_id }}</strong>
-      </div>
-      <div>
-        <span class="insight-label">Tema base</span>
-        <strong>{{ user.favorite_category }}</strong>
-      </div>
-      <div>
-        <span class="insight-label">Foco de sesion</span>
-        <strong>{{ user.session_focus }}</strong>
-      </div>
-      <div>
-        <span class="insight-label">Canales seguidos</span>
-        <strong>{{ user.following_channels }}</strong>
-      </div>
+    {% else %}
+    <section class="home-topic-bar" aria-label="Filtros de inicio">
+      <a class="topic-chip active" href="/home">Todo</a>
+      <a class="topic-chip" href="/search?q={{ user.favorite_category }}">{{ user.favorite_category }}</a>
+      <a class="topic-chip" href="/search?q={{ user.recent_category }}">{{ user.recent_category }}</a>
+      <a class="topic-chip" href="/search?q=gaming">Videojuegos</a>
+      <a class="topic-chip" href="/search?q=noticias">Noticias</a>
+      <a class="topic-chip" href="/search?q=tecnologia">Tecnologia</a>
+      <a class="topic-chip" href="/search?q=educacion">Educacion</a>
+      <a class="topic-chip" href="/search?q=deportes">Deportes</a>
     </section>
 
     {% for shelf in shelves %}
-    <section class="shelf">
+    <section class="shelf youtube-shelf">
       <div class="section-header">
         <h2>{{ shelf["title"] }}</h2>
-        <p>Retrieval historico + senal de sesion + ranker final.</p>
+        <p>{{ shelf.get("description", "Retrieval historico + senal de sesion + ranker final.") }}</p>
       </div>
       <div class="row-grid">
         {% for video in shelf["items"] %}
@@ -110,6 +88,7 @@
       </div>
     </section>
     {% endfor %}
+    {% endif %}
   </section>
 </main>
 {% endblock %}

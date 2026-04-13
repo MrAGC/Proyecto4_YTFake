@@ -14,7 +14,7 @@
   </div>
   <form class="search-form" action="/search" method="get">
     <input type="search" name="q" value="{{ query }}" placeholder="Buscar videos, temas o canales">
-    <button type="submit" disabled>Buscar</button>
+    <button type="submit">Buscar</button>
   </form>
   <div class="topbar-actions">
     <a href="/home" class="ghost-link">Inicio</a>
@@ -25,19 +25,54 @@
   {{ render_sidebar(user, sidebar, active_page) }}
 
   <section class="content-shell">
-    <div class="placeholder-card">
+    <div class="placeholder-card search-intro-card">
       <p class="eyebrow">Buscador</p>
-      <h1>La interfaz esta preparada, pero la busqueda real va en la siguiente fase.</h1>
-      <p>
-        No habia una implementacion reutilizable en las ramas del repo. El siguiente paso es
-        conectar retrieval textual y luego pasar los candidatos por el mismo ranker.
-      </p>
+      <h1>Busca un tema para arrancar tus recomendaciones.</h1>
+      <p>Al abrir resultados, esa vista entra en tu sesion y la home empieza a personalizarse.</p>
       <div class="placeholder-points">
         <span>Usuario {{ user.user_id }}</span>
         <span>{{ user.session_focus }}</span>
-        <span>Ranker compartido listo</span>
+        <span>{{ search_stack }}</span>
+        {% if query %}
+        <span>{{ result_count }} resultados</span>
+        {% endif %}
       </div>
     </div>
+
+    {% if query %}
+    <section class="shelf">
+      <div class="section-header">
+        <h2>Resultados para "{{ query }}"</h2>
+        <p>Abre algunos videos para alimentar la sesion.</p>
+      </div>
+      {% if results %}
+      <div class="row-grid">
+        {% for video in results %}
+        <a class="video-card" href="/watch/{{ video.video_id }}?source=search&q={{ query | urlencode }}">
+          <div
+            class="thumb thumb-{{ (video.thumbnail_seed % 6) + 1 }}"
+            {% if video.thumbnail_url %}
+            style="background-image: linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52)), url('{{ video.thumbnail_url }}'); background-size: cover; background-position: center;"
+            {% endif %}
+          >
+            <span class="duration">{{ video.duration_text }}</span>
+          </div>
+          <div class="video-meta">
+            <h3>{{ video.title }}</h3>
+            <p>{{ video.channel_name }}</p>
+            <p>{{ video.category }} | {{ video.views_text }}</p>
+            <p>#{{ video.search_rank }} | score {{ video.search_score }} | {{ video.search_ranker }}</p>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="placeholder-card slim-card">
+        <p>No he encontrado resultados para esa busqueda. Prueba con un tema mas general.</p>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
   </section>
 </main>
 {% endblock %}
