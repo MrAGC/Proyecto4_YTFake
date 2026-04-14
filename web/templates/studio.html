@@ -14,6 +14,7 @@
   </div>
   <div></div>
   <div class="topbar-actions">
+    <button class="ghost-link thumbnail-mode-button" type="button" data-dev-thumbnail-toggle>Modo normal: fotos</button>
     <a href="/home" class="ghost-link">Inicio</a>
   </div>
 </header>
@@ -41,15 +42,18 @@
     <section class="shelf">
       <div class="section-header">
         <h2>Tu catalogo actual</h2>
-        <p>Vista previa de los videos ya asociados a esta cuenta.</p>
       </div>
       <div class="row-grid">
         {% for video in created_videos %}
         <a class="video-card" href="/watch/{{ video.video_id }}">
-          <div
-            class="thumb thumb-{{ (video.thumbnail_seed % 6) + 1 }}"
-            {% if video.thumbnail_url %}
-            style="background-image: linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52)), url('{{ video.thumbnail_url }}'); background-size: cover; background-position: center;"
+        <div
+          class="thumb thumb-{{ (video.thumbnail_seed % 6) + 1 }}"
+          data-thumbnail-target
+          data-real-thumbnail="{{ video.thumbnail_real_url }}"
+          data-dev-thumbnail="{{ video.thumbnail_dev_url }}"
+          data-thumbnail-gradient="linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52))"
+          {% if video.thumbnail_url %}
+          style="background-image: linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52)), url('{{ video.thumbnail_url }}'); background-size: cover; background-position: center;"
             {% endif %}
           >
             <span class="duration">{{ video.duration_text }}</span>

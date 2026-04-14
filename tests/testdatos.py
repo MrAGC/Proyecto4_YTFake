@@ -1,7 +1,11 @@
 import pandas as pd
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # Cargar el dataset
-df = pd.read_csv("data/youtube recommendation dataset.csv")
+df = pd.read_csv(PROJECT_ROOT / "data" / "youtube recommendation dataset.csv")
 
 # Contar cuántas categorías únicas hay
 num_categorias = df["category"].nunique()

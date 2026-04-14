@@ -3,12 +3,17 @@ from __future__ import annotations
 import json
 import math
 import pickle
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
 
-from train_retrieval_cf import (
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from ml.train_retrieval_cf import (
     SECONDARY_ITEM_WEIGHT,
     TOP_ITEM_NEIGHBORS,
     TOP_RECOMMENDATIONS,
@@ -21,11 +26,11 @@ from train_retrieval_cf import (
 )
 
 
-CF_DATASET_PATH = Path("reco_output_v2/cf_interactions.csv")
-VIDEO_FEATURES_PATH = Path("reco_output_v2/video_features.csv")
-USER_FEATURES_PATH = Path("reco_output_v2/user_features.csv")
-USER_CHANNEL_FEATURES_PATH = Path("reco_output_v2/user_channel_features.csv")
-OUTPUT_DIR = Path("models/retrieval_multisource_v1")
+CF_DATASET_PATH = PROJECT_ROOT / "reco_output_v2" / "cf_interactions.csv"
+VIDEO_FEATURES_PATH = PROJECT_ROOT / "reco_output_v2" / "video_features.csv"
+USER_FEATURES_PATH = PROJECT_ROOT / "reco_output_v2" / "user_features.csv"
+USER_CHANNEL_FEATURES_PATH = PROJECT_ROOT / "reco_output_v2" / "user_channel_features.csv"
+OUTPUT_DIR = PROJECT_ROOT / "models" / "retrieval_multisource_v1"
 
 USER_CF_WEIGHT = 0.35
 ITEM_CF_WEIGHT = 0.20

@@ -2,7 +2,7 @@
 
 ## Objetivo del script
 
-`prepare_recommendation_data.py` convierte las tablas limpias de `data/` en datasets utiles para entrenar o evaluar recomendadores.
+`scripts/data/prepare_recommendation_data.py` convierte las tablas limpias de `data/` en datasets utiles para entrenar o evaluar recomendadores.
 
 Entrada activa hoy:
 

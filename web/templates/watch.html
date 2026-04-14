@@ -7,6 +7,10 @@
 <a class="compact-card" href="/watch/{{ video.video_id }}">
   <div
     class="compact-thumb thumb-{{ (video.thumbnail_seed % 6) + 1 }}"
+    data-thumbnail-target
+    data-real-thumbnail="{{ video.thumbnail_real_url }}"
+    data-dev-thumbnail="{{ video.thumbnail_dev_url }}"
+    data-thumbnail-gradient="linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52))"
     {% if video.thumbnail_url %}
     style="background-image: linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52)), url('{{ video.thumbnail_url }}'); background-size: cover; background-position: center;"
     {% endif %}
@@ -35,7 +39,7 @@
     <button type="submit">Buscar</button>
   </form>
   <div class="topbar-actions">
-    <span class="stack-badge">{{ model_stack }}</span>
+    <button class="ghost-link thumbnail-mode-button" type="button" data-dev-thumbnail-toggle>Modo normal: fotos</button>
     <a href="/home" class="ghost-link">Inicio</a>
   </div>
 </header>
@@ -48,6 +52,10 @@
       <section class="player-column">
         <div
           class="player-surface hero-{{ (video.thumbnail_seed % 6) + 1 }}"
+          data-thumbnail-target
+          data-real-thumbnail="{{ video.thumbnail_real_url }}"
+          data-dev-thumbnail="{{ video.thumbnail_dev_url }}"
+          data-thumbnail-gradient="linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52))"
           {% if video.thumbnail_url %}
           style="background-image: linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52)), url('{{ video.thumbnail_url }}'); background-size: cover; background-position: center;"
           {% endif %}
@@ -70,13 +78,28 @@
               </div>
             </div>
             <div class="subscribe-control">
-              <button class="subscribe-button" type="button" data-toggle-active data-endpoint="/api/channels/{{ video.channel_id }}/subscribe" aria-pressed="false">Suscribirse</button>
+              <button
+                class="subscribe-button{% if video.user_subscribed_channel %} active{% endif %}"
+                type="button"
+                data-toggle-active
+                data-active-label="Suscrito"
+                data-inactive-label="Suscribirse"
+                data-endpoint="/api/channels/{{ video.channel_id }}/subscribe"
+                aria-pressed="{{ 'true' if video.user_subscribed_channel else 'false' }}"
+              >{{ "Suscrito" if video.user_subscribed_channel else "Suscribirse" }}</button>
               <span class="engagement-count">&#128276; {{ video.channel_followers_text }}</span>
             </div>
           </div>
           <div class="watch-actions">
             <div class="engagement-control">
-              <button class="icon-action-button" type="button" data-toggle-active data-endpoint="/api/videos/{{ video.video_id }}/like" aria-pressed="false" aria-label="Me gusta">&#128077;</button>
+              <button
+                class="icon-action-button{% if video.user_liked_video %} active{% endif %}"
+                type="button"
+                data-toggle-active
+                data-endpoint="/api/videos/{{ video.video_id }}/like"
+                aria-pressed="{{ 'true' if video.user_liked_video else 'false' }}"
+                aria-label="Me gusta"
+              >&#128077;</button>
               <span class="engagement-count">{{ video.likes_text }}</span>
             </div>
             <button class="metric-button" type="button">Compartir</button>
@@ -96,7 +119,6 @@
       <aside class="next-column">
         <div class="section-header">
           <h2>Siguiente</h2>
-          <p>La sesion ya cuenta para la siguiente vuelta a la home.</p>
         </div>
         <div class="watch-filter-tabs" role="tablist" aria-label="Filtros de recomendaciones">
           {% for group in next_groups %}

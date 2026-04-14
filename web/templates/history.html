@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "_sidebar.html" import render_sidebar %}
+
+{% block title %}Historial | YTFake{% endblock %}
+
+{% macro history_card(video) -%}
+<a class="history-video-card" href="/watch/{{ video.video_id }}">
+  <div
+    class="history-thumb thumb-{{ (video.thumbnail_seed % 6) + 1 }}"
+    data-thumbnail-target
+    data-real-thumbnail="{{ video.thumbnail_real_url }}"
+    data-dev-thumbnail="{{ video.thumbnail_dev_url }}"
+    data-thumbnail-gradient="linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52))"
+    {% if video.thumbnail_url %}
+    style="background-image: linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52)), url('{{ video.thumbnail_url }}'); background-size: cover; background-position: center;"
+    {% endif %}
+  >
+    <span class="duration">{{ video.duration_text }}</span>
+  </div>
+  <div class="history-video-meta">
+    <div class="history-video-title-row">
+      <h3>{{ video.title }}</h3>
+      <span>{{ video.source_label }}</span>
+    </div>
+    <p>{{ video.channel_name }} | {{ video.views_text }} | {{ video.freshness_text }}</p>
+    <div class="history-video-flags">
+      <span>{{ video.category }}</span>
+      {% if video.user_liked_video %}
+      <span>Like guardado</span>
+      {% endif %}
+      {% if video.user_subscribed_channel %}
+      <span>Canal suscrito</span>
+      {% endif %}
+    </div>
+  </div>
+</a>
+{%- endmacro %}
+
+{% block body %}
+<header class="topbar">
+  <div class="brand-block">
+    <button type="button" class="menu-button" data-sidebar-toggle>Menu</button>
+    <a class="brand" href="/home">
+      <span class="brand-mark"></span>
+      <span>YTFake</span>
+    </a>
+  </div>
+  <form class="search-form" action="/search" method="get">
+    <input type="search" name="q" placeholder="Buscar videos, temas o canales">
+    <button type="submit">Buscar</button>
+  </form>
+  <div class="topbar-actions">
+    <button class="ghost-link thumbnail-mode-button" type="button" data-dev-thumbnail-toggle>Modo normal: fotos</button>
+    <a href="/home" class="ghost-link">Inicio</a>
+  </div>
+</header>
+
+<main class="app-shell history-app-shell">
+  {{ render_sidebar(user, sidebar, active_page) }}
+
+  <section class="content-shell history-page">
+    <div class="history-page-head">
+      <div>
+        <p class="eyebrow">Tu actividad</p>
+        <h1>Historial</h1>
+        <p>Estos videos alimentan la sesion actual y ayudan a que la home no dependa solo del ultimo click.</p>
+      </div>
+      <span class="history-count">{{ history_items | length }} videos</span>
+    </div>
+
+    {% if history_items %}
+    <div class="history-video-list">
+      {% for video in history_items %}
+        {{ history_card(video) }}
+      {% endfor %}
+    </div>
+    {% else %}
+    <section class="empty-home compact-empty">
+      <p class="eyebrow">Sin historial todavia</p>
+      <h2>Busca y abre algunos videos para llenar esta pagina.</h2>
+      <p>En invitados se guarda una sesion local. En usuarios registrados tambien se mezcla con su historial base del dataset.</p>
+      <form class="empty-search-form" action="/search" method="get">
+        <input type="search" name="q" placeholder="Ej: gaming, tecnologia, educacion">
+        <button type="submit">Buscar videos</button>
+      </form>
+    </section>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

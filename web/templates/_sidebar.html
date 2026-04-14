@@ -13,6 +13,7 @@
 
   <nav class="sidebar-card sidebar-nav">
     <a href="/home" class="{% if active_page == 'home' %}nav-link active{% else %}nav-link{% endif %}">Inicio</a>
+    <a href="/history" class="{% if active_page == 'history' %}nav-link active{% else %}nav-link{% endif %}">Historial</a>
     <a href="/profile" class="{% if active_page == 'profile' %}nav-link active{% else %}nav-link{% endif %}">Mi perfil</a>
     <a href="/studio" class="{% if active_page == 'studio' %}nav-link active{% else %}nav-link{% endif %}">Subir videos</a>
     <a href="/search" class="{% if active_page == 'search' %}nav-link active{% else %}nav-link{% endif %}">Buscador</a>
@@ -27,7 +28,7 @@
   <section class="sidebar-card">
     <div class="sidebar-section-head">
       <h3>Historial de sesion</h3>
-      <span>{{ sidebar["session_history"] | length }}</span>
+      <a class="mini-link" href="/history">{{ sidebar["session_history"] | length }} recientes</a>
     </div>
     {% if sidebar["session_history"] %}
       <div class="history-list">

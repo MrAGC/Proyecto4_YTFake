@@ -10,7 +10,7 @@ Antes, la retrieval se estaba midiendo principalmente con variantes de `Collabor
 
 Ahora se ha implementado una retrieval `v2` para `home` en:
 
-- `train_retrieval_multisource.py`
+- `ml/train_retrieval_multisource.py`
 
 Esta retrieval mezcla varias fuentes de candidatos:
 

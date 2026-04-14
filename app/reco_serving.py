@@ -16,11 +16,11 @@ from pathlib import Path
 import pandas as pd
 import xgboost as xgb
 
-from train_retrieval_cf import top_items
-from train_retrieval_multisource import build_multisource_scores
+from ml.train_retrieval_cf import top_items
+from ml.train_retrieval_multisource import build_multisource_scores
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
 RECO_DIR = BASE_DIR / "reco_output_v2"
 MODELS_DIR = BASE_DIR / "models"
@@ -52,6 +52,87 @@ CATEGORICAL_COLUMNS = [
 DEFAULT_VIDEO_LIMIT = 240
 SESSION_HISTORY_LIMIT = 100
 HISTORICAL_HISTORY_LIMIT = 10
+HISTORY_PAGE_LIMIT = 240
+SEARCH_STOPWORDS = {
+    "a",
+    "al",
+    "algo",
+    "asi",
+    "bien",
+    "cada",
+    "como",
+    "con",
+    "contra",
+    "cual",
+    "cuando",
+    "de",
+    "del",
+    "desde",
+    "despues",
+    "durante",
+    "el",
+    "en",
+    "entre",
+    "era",
+    "es",
+    "esta",
+    "este",
+    "esto",
+    "fue",
+    "hace",
+    "hay",
+    "la",
+    "las",
+    "lo",
+    "los",
+    "mas",
+    "me",
+    "mi",
+    "mis",
+    "muy",
+    "no",
+    "para",
+    "pero",
+    "por",
+    "que",
+    "se",
+    "sin",
+    "sobre",
+    "su",
+    "sus",
+    "te",
+    "todo",
+    "un",
+    "una",
+    "unos",
+    "y",
+}
+SEARCH_CATEGORY_ALIASES = {
+    "comedia": "Comedy",
+    "comedy": "Comedy",
+    "educacion": "Education",
+    "education": "Education",
+    "estudio": "Education",
+    "futbol": "Sports",
+    "deporte": "Sports",
+    "deportes": "Sports",
+    "sports": "Sports",
+    "gaming": "Gaming",
+    "juego": "Gaming",
+    "juegos": "Gaming",
+    "videojuego": "Gaming",
+    "videojuegos": "Gaming",
+    "lifestyle": "Lifestyle",
+    "vida": "Lifestyle",
+    "musica": "Music",
+    "music": "Music",
+    "noticia": "News",
+    "noticias": "News",
+    "news": "News",
+    "tecnologia": "Tech",
+    "technology": "Tech",
+    "tech": "Tech",
+}
 
 
 @dataclass
@@ -408,10 +489,12 @@ class RecommendationService:
         ranked_videos = self._rank_candidates(user_id, candidate_ids, surface_value="home")
         shelves = self._build_home_shelves(user_id, ranked_videos)
         hero_video = ranked_videos[0] if ranked_videos else None
+        hero_videos = self._home_hero_videos(shelves, ranked_videos)
         return {
             "user": user_snapshot,
             "sidebar": self._build_sidebar(user_id),
             "hero_video": hero_video,
+            "hero_videos": hero_videos,
             "shelves": shelves,
             "model_stack": "multi_source_home + pairwise_xgboost + session_blend",
             "active_page": "home",
@@ -423,6 +506,7 @@ class RecommendationService:
         video = self._video_card(video_id)
         if video is None:
             raise KeyError(f"No existe video_id={video_id}")
+        video = self._apply_user_video_state(video, user_id)
 
         next_candidate_ids = self._watch_next_candidate_ids(user_id, video_id, limit=120)
         next_up = self._rank_watch_next_candidates(user_id, next_candidate_ids, video_id)
@@ -469,16 +553,26 @@ class RecommendationService:
             "active_page": "studio",
         }
 
+    def history_page(self, user_id: int) -> dict[str, object]:
+        return {
+            "user": self.get_user_snapshot(user_id),
+            "sidebar": self._build_sidebar(user_id),
+            "history_items": self._history_page_cards_for_user(user_id),
+            "active_page": "history",
+        }
+
     def guest_home_page(self, guest_id: str) -> dict[str, object]:
         guest_snapshot = self.get_guest_snapshot(guest_id)
         has_guest_signal = self._guest_has_recommendation_signal(guest_id)
         candidate_scores = self._guest_home_scores(guest_id) if has_guest_signal else {}
         ranked_videos = self._cards_from_scores(candidate_scores, limit=DEFAULT_VIDEO_LIMIT) if has_guest_signal else []
         shelves = self._build_guest_home_shelves(ranked_videos, guest_snapshot, guest_id)
+        hero_videos = self._home_hero_videos(shelves, ranked_videos)
         return {
             "user": guest_snapshot,
             "sidebar": self._build_guest_sidebar(guest_id),
             "hero_video": ranked_videos[0] if ranked_videos else None,
+            "hero_videos": hero_videos,
             "shelves": shelves,
             "model_stack": "guest_session + global_recent",
             "active_page": "home",
@@ -489,6 +583,7 @@ class RecommendationService:
         video = self._video_card(video_id)
         if video is None:
             raise KeyError(f"No existe video_id={video_id}")
+        video = self._apply_guest_video_state(video, guest_id)
 
         next_candidate_ids = self._watch_next_candidate_ids_for_seen(self._guest_seen_videos(guest_id), video_id, limit=120)
         next_up = self._cards_from_ids(next_candidate_ids, limit=20)
@@ -531,6 +626,14 @@ class RecommendationService:
             "sidebar": self._build_guest_sidebar(guest_id),
             "created_videos": [],
             "active_page": "studio",
+        }
+
+    def guest_history_page(self, guest_id: str) -> dict[str, object]:
+        return {
+            "user": self.get_guest_snapshot(guest_id),
+            "sidebar": self._build_guest_sidebar(guest_id),
+            "history_items": self._history_page_cards_for_guest(guest_id),
+            "active_page": "history",
         }
 
     def _build_historical_history(self) -> dict[int, list[int]]:
@@ -609,7 +712,7 @@ class RecommendationService:
             if video_id not in session_history_set
         ]
         return {
-            "session_history": [card for card in session_history if card is not None],
+            "session_history": [card for card in session_history if card is not None][:6],
             "historical_history": [card for card in historical_history if card is not None][:6],
             "session_views": user_snapshot["session_views"],
             "session_focus": user_snapshot["session_focus"],
@@ -639,7 +742,7 @@ class RecommendationService:
         session_history_ids = [] if state is None else list(reversed(state.recent_video_ids))
         session_history = [self._history_card(video_id, "Sesion") for video_id in session_history_ids]
         return {
-            "session_history": [card for card in session_history if card is not None],
+            "session_history": [card for card in session_history if card is not None][:6],
             "historical_history": [],
             "session_views": 0 if state is None else int(state.views_in_session),
             "session_focus": self._build_guest_session_focus(guest_id),
@@ -675,6 +778,66 @@ class RecommendationService:
             "category": card["category"],
             "source_label": source_label,
         }
+
+    def _history_page_cards_for_user(self, user_id: int) -> list[dict[str, object]]:
+        state = self.session_states.get(user_id)
+        ordered_ids: list[tuple[int, str]] = []
+        seen_ids: set[int] = set()
+
+        if state is not None:
+            for video_id in reversed(state.recent_video_ids):
+                video_id_int = int(video_id)
+                if video_id_int in seen_ids:
+                    continue
+                seen_ids.add(video_id_int)
+                ordered_ids.append((video_id_int, "Sesion actual"))
+
+        historical_rows = self.interactions[self.interactions["user_id"] == user_id].sort_values("timestamp", ascending=False)
+        for video_id in historical_rows["video_id"]:
+            video_id_int = int(video_id)
+            if video_id_int in seen_ids:
+                continue
+            seen_ids.add(video_id_int)
+            ordered_ids.append((video_id_int, "Historial base"))
+            if len(ordered_ids) >= HISTORY_PAGE_LIMIT:
+                break
+
+        return self._history_page_cards(ordered_ids, user_id=user_id)
+
+    def _history_page_cards_for_guest(self, guest_id: str) -> list[dict[str, object]]:
+        state = self.guest_states.get(guest_id)
+        if state is None:
+            return []
+
+        ordered_ids: list[tuple[int, str]] = []
+        seen_ids: set[int] = set()
+        for video_id in reversed(state.recent_video_ids):
+            video_id_int = int(video_id)
+            if video_id_int in seen_ids:
+                continue
+            seen_ids.add(video_id_int)
+            ordered_ids.append((video_id_int, "Sesion local"))
+
+        return self._history_page_cards(ordered_ids, guest_id=guest_id)
+
+    def _history_page_cards(
+        self,
+        ordered_ids: list[tuple[int, str]],
+        user_id: int | None = None,
+        guest_id: str | None = None,
+    ) -> list[dict[str, object]]:
+        cards: list[dict[str, object]] = []
+        for video_id, source_label in ordered_ids[:HISTORY_PAGE_LIMIT]:
+            card = self._video_card(video_id)
+            if card is None:
+                continue
+            if user_id is not None:
+                card = self._apply_user_video_state(card, user_id)
+            elif guest_id is not None:
+                card = self._apply_guest_video_state(card, guest_id)
+            card["source_label"] = source_label
+            cards.append(card)
+        return cards
 
     def _build_search_index(self) -> SearchIndex:
         documents: list[SearchDocument] = []
@@ -723,7 +886,10 @@ class RecommendationService:
 
         query_tokens = set(query_norm.split())
         query_trigrams = self._char_ngrams(query_norm) if len(query_norm) >= 3 else set()
-        candidate_indexes = self._collect_search_candidates(query_norm, query_tokens, query_trigrams)
+        candidate_indexes = self._collect_search_candidates(query_norm, query_tokens, query_trigrams, limit)
+        if not candidate_indexes:
+            return []
+        candidate_indexes = self._filter_search_candidates_by_category_intent(candidate_indexes, query_norm)
         if not candidate_indexes:
             return []
 
@@ -731,6 +897,9 @@ class RecommendationService:
             candidate_index: self._score_search_candidate(candidate_index, query_norm, query_tokens, query_trigrams)
             for candidate_index in candidate_indexes
         }
+        candidate_indexes = self._filter_search_candidates_by_intent(candidate_indexes, scores, query_tokens)
+        if not candidate_indexes:
+            return []
         ordered_indexes = sorted(
             candidate_indexes,
             key=lambda candidate_index: (
@@ -776,26 +945,89 @@ class RecommendationService:
         query_norm: str,
         query_tokens: set[str],
         query_trigrams: set[str],
+        result_limit: int = 36,
     ) -> list[int]:
-        candidate_indexes: set[int] = set()
+        phrase_indexes = {
+            index
+            for index, document in enumerate(self.search_index.documents)
+            if query_norm in document.normalized_title
+        }
+        if phrase_indexes and len(query_tokens) > 1:
+            return list(phrase_indexes)
 
-        for token in query_tokens:
-            candidate_indexes.update(self.search_index.token_index.get(token, []))
+        direct_indexes: set[int] = set()
+        direct_indexes.update(phrase_indexes)
+        if query_tokens:
+            token_lists = [
+                self.search_index.token_index.get(token, [])
+                for token in sorted(query_tokens, key=lambda token: len(self.search_index.token_index.get(token, [])))
+            ]
+            if len(token_lists) == 1:
+                direct_indexes.update(token_lists[0])
+            else:
+                token_counts: dict[int, int] = {}
+                min_matches = max(1, math.ceil(len(query_tokens) * 0.55))
+                for indexes in token_lists:
+                    for index in indexes:
+                        token_counts[index] = token_counts.get(index, 0) + 1
+                for index, count in token_counts.items():
+                    if count >= min_matches:
+                        direct_indexes.add(index)
 
-        if len(candidate_indexes) < 36:
-            for index, document in enumerate(self.search_index.documents):
-                if query_norm in document.normalized_title:
-                    candidate_indexes.add(index)
+        if direct_indexes:
+            return list(direct_indexes)
 
-        if len(candidate_indexes) < 36 and query_trigrams:
+        fuzzy_indexes: set[int] = set()
+        if query_trigrams:
             trigram_counts: dict[int, int] = {}
             for trigram in query_trigrams:
                 for index in self.search_index.trigram_index.get(trigram, []):
                     trigram_counts[index] = trigram_counts.get(index, 0) + 1
-            for index, _count in sorted(trigram_counts.items(), key=lambda item: item[1], reverse=True)[:2000]:
-                candidate_indexes.add(index)
+            min_overlap = max(2, math.ceil(len(query_trigrams) * 0.45))
+            for index, count in sorted(trigram_counts.items(), key=lambda item: item[1], reverse=True)[:2000]:
+                if count >= min_overlap:
+                    fuzzy_indexes.add(index)
+                if len(fuzzy_indexes) >= result_limit * 4:
+                    break
 
-        return list(candidate_indexes)
+        return list(fuzzy_indexes)
+
+    def _filter_search_candidates_by_category_intent(self, candidate_indexes: list[int], query_norm: str) -> list[int]:
+        category = SEARCH_CATEGORY_ALIASES.get(query_norm)
+        if category is None:
+            return candidate_indexes
+
+        filtered_indexes = [
+            index
+            for index in candidate_indexes
+            if self._clean_text(
+                self.video_feature_map.get(self.search_index.documents[index].video_id, {}).get("video_category"),
+                "",
+            )
+            == category
+        ]
+        return filtered_indexes or candidate_indexes
+
+    def _filter_search_candidates_by_intent(
+        self,
+        candidate_indexes: list[int],
+        scores: dict[int, float],
+        query_tokens: set[str],
+    ) -> list[int]:
+        if not candidate_indexes:
+            return []
+
+        exact_indexes = [
+            index
+            for index in candidate_indexes
+            if query_tokens and query_tokens.issubset(self.search_index.documents[index].tokens)
+        ]
+        if exact_indexes:
+            return exact_indexes
+
+        max_score = max(scores[index] for index in candidate_indexes)
+        min_score = max(1.35, max_score * 0.68)
+        return [index for index in candidate_indexes if scores[index] >= min_score]
 
     def _score_search_candidate(
         self,
@@ -906,7 +1138,7 @@ class RecommendationService:
 
     @staticmethod
     def _tokenize_search_text(normalized_text: str) -> set[str]:
-        return {token for token in normalized_text.split() if len(token) > 1}
+        return {token for token in normalized_text.split() if len(token) > 2 and token not in SEARCH_STOPWORDS}
 
     @staticmethod
     def _char_ngrams(normalized_text: str, n: int = 3) -> set[str]:
@@ -1555,6 +1787,115 @@ class RecommendationService:
                 break
         return items
 
+    def _preferred_categories_for_user(self, user_id: int, ranked_videos: list[dict[str, object]]) -> list[str]:
+        categories: list[str] = []
+        user_row = self.user_feature_map.get(user_id, {})
+        for category in list(self._session_categories(user_id)) + [
+            self._clean_text(user_row.get("user_recent_favorite_category"), ""),
+            self._clean_text(user_row.get("user_favorite_category"), ""),
+        ]:
+            if category and category not in categories:
+                categories.append(category)
+
+        for video in ranked_videos[:18]:
+            category = str(video.get("category", ""))
+            if category and category != "unknown" and category not in categories:
+                categories.append(category)
+            if len(categories) >= 5:
+                break
+        return categories
+
+    def _preferred_categories_for_guest(self, guest_id: str, ranked_videos: list[dict[str, object]]) -> list[str]:
+        categories: list[str] = []
+        state = self.guest_states.get(guest_id)
+        if state is not None:
+            for video_id in list(state.recent_video_ids) + list(state.engaged_video_ids):
+                video_row = self.video_feature_map.get(int(video_id))
+                if video_row is None:
+                    continue
+                category = self._clean_text(video_row.get("video_category"), "")
+                if category and category not in categories:
+                    categories.append(category)
+
+        for video in ranked_videos[:18]:
+            category = str(video.get("category", ""))
+            if category and category != "unknown" and category not in categories:
+                categories.append(category)
+            if len(categories) >= 5:
+                break
+        return categories
+
+    def _personalized_recent_upload_cards(
+        self,
+        preferred_categories: list[str],
+        ranked_videos: list[dict[str, object]],
+        exclude_ids: set[int],
+        seen_ids: set[int],
+        limit: int = 12,
+    ) -> list[dict[str, object]]:
+        items: list[dict[str, object]] = []
+        item_ids: set[int] = set()
+        category_counts: Counter[str] = Counter()
+        allowed_categories = set(preferred_categories)
+
+        def add_card(card: dict[str, object] | None) -> bool:
+            if card is None:
+                return False
+            video_id = int(card["video_id"])
+            category = str(card.get("category", "unknown"))
+            if video_id in exclude_ids or video_id in seen_ids or video_id in item_ids:
+                return False
+            if int(card.get("is_recent_upload", 0)) != 1:
+                return False
+            if allowed_categories and category not in allowed_categories:
+                return False
+            if category_counts[category] >= 4:
+                return False
+            items.append(card)
+            item_ids.add(video_id)
+            category_counts[category] += 1
+            return len(items) == limit
+
+        for video in ranked_videos:
+            if add_card(video):
+                return items
+
+        recent_by_category = self.retrieval_bundle.get("recent_category_top_videos", {})
+        for category in preferred_categories:
+            for video_id in recent_by_category.get(category, [])[:80]:
+                if add_card(self._video_card(int(video_id))):
+                    return items
+
+        return items
+
+    def _discovery_cards(
+        self,
+        ranked_videos: list[dict[str, object]],
+        used_ids: set[int],
+        avoid_categories: set[str],
+        limit: int = 12,
+    ) -> list[dict[str, object]]:
+        items: list[dict[str, object]] = []
+        category_counts: Counter[str] = Counter()
+        fallback_cards = self._cards_from_ids([int(video_id) for video_id in self.retrieval_bundle["global_recent"][:220]], limit=80)
+
+        for video in list(ranked_videos) + fallback_cards:
+            video_id = int(video["video_id"])
+            category = str(video.get("category", "unknown"))
+            if video_id in used_ids:
+                continue
+            if category in avoid_categories and len(items) < max(4, limit // 2):
+                continue
+            if category_counts[category] >= 3:
+                continue
+            items.append(video)
+            used_ids.add(video_id)
+            category_counts[category] += 1
+            if len(items) == limit:
+                break
+
+        return items
+
     def _fill_home_shelf(
         self,
         title: str,
@@ -1599,6 +1940,7 @@ class RecommendationService:
 
     def _build_home_shelves(self, user_id: int, ranked_videos: list[dict[str, object]]) -> list[dict[str, object]]:
         used_ids: set[int] = set()
+        seen_ids = self._combined_seen_videos(user_id)
 
         def pick(
             title: str,
@@ -1626,19 +1968,21 @@ class RecommendationService:
                 return None
             return {"title": title, "description": description, "items": items}
 
-        new_shelf = pick(
-            "Videos nuevos",
-            "Novedad ordenada por el mismo ranker, sin repetir videos ya vistos.",
-            lambda video: video["is_recent_upload"] == 1,
+        preferred_categories = self._preferred_categories_for_user(user_id, ranked_videos)
+        new_ranked_items = self._personalized_recent_upload_cards(
+            preferred_categories,
+            ranked_videos,
+            exclude_ids=used_ids,
+            seen_ids=seen_ids,
+            limit=12,
         )
-        if new_shelf is None:
-            new_shelf = self._fill_home_shelf(
-                "Videos nuevos",
-                "Novedad disponible aunque tu sesion haya agotado los candidatos principales.",
-                self._recent_upload_cards(used_ids, limit=12),
-                ranked_videos,
-                used_ids,
-            )
+        new_shelf = self._fill_home_shelf(
+            "Videos nuevos",
+            "Novedad personalizada con los temas que estas viendo.",
+            new_ranked_items,
+            [],
+            used_ids,
+        )
 
         for_you_shelf = pick(
             "Para ti",
@@ -1676,8 +2020,62 @@ class RecommendationService:
             used_ids,
             max_per_category=6,
         )
+        discovery_categories = {
+            str(video.get("category", "unknown"))
+            for video in list(new_shelf.get("items", [])) + list(for_you_shelf.get("items", []))
+        }
+        discovery_items = self._discovery_cards(ranked_videos, used_ids, discovery_categories, limit=12)
+        discovery_shelf = {
+            "title": "Nuevos descubrimientos",
+            "description": "Exploracion fuera del foco principal.",
+            "items": discovery_items,
+        }
 
-        return [new_shelf, for_you_shelf, connected_shelf]
+        return [shelf for shelf in [new_shelf, for_you_shelf, connected_shelf, discovery_shelf] if shelf.get("items")]
+
+    @staticmethod
+    def _home_hero_videos(
+        shelves: list[dict[str, object]],
+        ranked_videos: list[dict[str, object]],
+        limit: int = 5,
+    ) -> list[dict[str, object]]:
+        hero_items: list[dict[str, object]] = []
+        seen_ids: set[int] = set()
+
+        for shelf in shelves:
+            if not shelf:
+                continue
+            if str(shelf.get("title", "")).lower() != "videos nuevos":
+                continue
+            for video in shelf.get("items", []):
+                if RecommendationService._has_placeholder_title(video):
+                    continue
+                video_id = int(video["video_id"])
+                if video_id in seen_ids:
+                    continue
+                seen_ids.add(video_id)
+                hero_items.append(video)
+                if len(hero_items) == limit:
+                    return hero_items
+
+        for video in ranked_videos:
+            if RecommendationService._has_placeholder_title(video):
+                continue
+            video_id = int(video["video_id"])
+            if video_id in seen_ids:
+                continue
+            seen_ids.add(video_id)
+            hero_items.append(video)
+            if len(hero_items) == limit:
+                break
+
+        return hero_items
+
+    @staticmethod
+    def _has_placeholder_title(video: dict[str, object]) -> bool:
+        video_id = int(video.get("video_id", 0))
+        title = str(video.get("title", "")).strip().lower()
+        return title == f"video {video_id}" or not title
 
     def _guest_session_related_cards(
         self,
@@ -1708,6 +2106,7 @@ class RecommendationService:
         guest_id: str = "",
     ) -> list[dict[str, object]]:
         used_ids: set[int] = set()
+        seen_ids = self._guest_seen_videos(guest_id)
 
         def pick(
             title: str,
@@ -1732,15 +2131,21 @@ class RecommendationService:
             return None if not items else {"title": title, "description": description, "items": items}
 
         focus_label = str(guest_snapshot["session_focus"]).replace("Invitado centrado ahora en: ", "")
-        new_shelf = pick("Videos nuevos", "Novedad filtrada por la sesion local.", lambda video: video["is_recent_upload"] == 1)
-        if new_shelf is None:
-            new_shelf = self._fill_home_shelf(
-                "Videos nuevos",
-                "Novedad disponible aunque tu sesion haya agotado los candidatos principales.",
-                self._recent_upload_cards(used_ids, limit=12),
-                ranked_videos,
-                used_ids,
-            )
+        preferred_categories = self._preferred_categories_for_guest(guest_id, ranked_videos)
+        new_ranked_items = self._personalized_recent_upload_cards(
+            preferred_categories,
+            ranked_videos,
+            exclude_ids=used_ids,
+            seen_ids=seen_ids,
+            limit=12,
+        )
+        new_shelf = self._fill_home_shelf(
+            "Videos nuevos",
+            "Novedad personalizada con los temas que estas viendo.",
+            new_ranked_items,
+            [],
+            used_ids,
+        )
 
         for_you_shelf = pick(
             "Para ti",
@@ -1767,7 +2172,17 @@ class RecommendationService:
             used_ids,
             max_per_category=8,
         )
-        return [new_shelf, for_you_shelf, session_shelf]
+        discovery_categories = {
+            str(video.get("category", "unknown"))
+            for video in list(new_shelf.get("items", [])) + list(for_you_shelf.get("items", []))
+        }
+        discovery_items = self._discovery_cards(ranked_videos, used_ids, discovery_categories, limit=12)
+        discovery_shelf = {
+            "title": "Nuevos descubrimientos",
+            "description": "Exploracion fuera del foco principal.",
+            "items": discovery_items,
+        }
+        return [shelf for shelf in [new_shelf, for_you_shelf, session_shelf, discovery_shelf] if shelf.get("items")]
 
     def _cards_from_scores(self, scores: dict[int, float], limit: int) -> list[dict[str, object]]:
         cards: list[dict[str, object]] = []
@@ -1798,7 +2213,11 @@ class RecommendationService:
         channel_id = int(feature_row["channel_id"])
         channel = self.channel_map.get(channel_id, {})
         title = self._clean_text(catalog_row.get("titulo"), f"Video {video_id}")
-        thumbnail_url = self._clean_text(catalog_row.get("thumbnail_url"), "")
+        thumbnail_dev_url = self._clean_text(catalog_row.get("thumbnail_dev_url"), "")
+        if not thumbnail_dev_url:
+            thumbnail_dev_url = self._clean_text(catalog_row.get("thumbnail_url"), "")
+        thumbnail_real_url = self._clean_text(catalog_row.get("thumbnail_real_url"), "")
+        thumbnail_url = thumbnail_real_url or thumbnail_dev_url
         total_likes = self._clean_int(catalog_row.get("total_likes"), 0)
         total_comments = self._clean_int(catalog_row.get("total_comments"), 0)
         followers_total = self._clean_int(channel.get("followers_total"), 0)
@@ -1810,6 +2229,8 @@ class RecommendationService:
             "channel_name": self._clean_text(channel.get("channel_name"), f"channel_{channel_id}"),
             "channel_followers_text": self._format_count(followers_total, "suscriptores"),
             "thumbnail_url": thumbnail_url,
+            "thumbnail_real_url": thumbnail_real_url or thumbnail_url,
+            "thumbnail_dev_url": thumbnail_dev_url or thumbnail_url,
             "duration_text": self._format_duration(self._clean_int(feature_row.get("video_duration_s_clean"), 0)),
             "views_text": self._format_views(self._clean_int(catalog_row.get("total_views"), 0)),
             "likes_text": self._format_count(total_likes, "likes"),
@@ -1824,6 +2245,26 @@ class RecommendationService:
             "recent_category_match": 0,
             "session_bonus": 0.0,
         }
+
+    def _apply_user_video_state(self, video: dict[str, object], user_id: int) -> dict[str, object]:
+        state = self.session_states.get(user_id)
+        video_id = int(video["video_id"])
+        channel_id = int(video["channel_id"])
+        is_liked = state is not None and video_id in state.liked_video_ids
+        is_subscribed = (user_id, channel_id) in self.follow_pairs or (
+            state is not None and channel_id in state.subscribed_channel_ids
+        )
+        video["user_liked_video"] = is_liked
+        video["user_subscribed_channel"] = is_subscribed
+        return video
+
+    def _apply_guest_video_state(self, video: dict[str, object], guest_id: str) -> dict[str, object]:
+        state = self.guest_states.get(guest_id)
+        video_id = int(video["video_id"])
+        channel_id = int(video["channel_id"])
+        video["user_liked_video"] = state is not None and video_id in state.liked_video_ids
+        video["user_subscribed_channel"] = state is not None and channel_id in state.subscribed_channel_ids
+        return video
 
     @staticmethod
     def _clean_text(value: object, fallback: str) -> str:

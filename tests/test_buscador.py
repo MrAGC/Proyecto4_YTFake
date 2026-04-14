@@ -18,11 +18,12 @@ except Exception:  # pragma: no cover - fallback for headless runs
     tk = None
     ttk = None
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATASET_CANDIDATES = (
-    "videos_completos.csv",
-    "videos_completo.csv",
-    "videos_actualizado.csv",
-    "videos.csv",
+    PROJECT_ROOT / "data" / "videos.csv",
+    PROJECT_ROOT / "data" / "viejos" / "videos_completo.csv",
+    PROJECT_ROOT / "data" / "viejos" / "videos_actualizado.csv",
+    PROJECT_ROOT / "data" / "viejos" / "videos_base_generado.csv",
 )
 
 @dataclass(frozen=True)
@@ -65,13 +66,12 @@ DEFAULT_CONFIG = SearchConfig()
 
 
 def find_dataset_path() -> Path:
-    for name in DATASET_CANDIDATES:
-        path = Path(name)
+    for path in DATASET_CANDIDATES:
         if path.exists():
             return path
     raise FileNotFoundError(
         "No se encontro el dataset. Busca alguno de: "
-        + ", ".join(DATASET_CANDIDATES)
+        + ", ".join(str(path) for path in DATASET_CANDIDATES)
     )
 
 

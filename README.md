@@ -2,6 +2,17 @@
 
 La documentacion ampliada del proyecto esta en `docs/README.md`.
 
+## Estructura rapida
+
+- `app/`: FastAPI, rutas web y capa de serving del recomendador.
+- `ml/`: funciones reutilizables de retrieval/collaborative filtering.
+- `scripts/data/`: generacion, limpieza, enriquecimiento y preparacion de datasets.
+- `scripts/training/`: entrenamiento de modelos.
+- `scripts/evaluation/`: auditorias, comparativas y diagnosticos.
+- `tests/`: pruebas/prototipos locales.
+- `web/`: plantillas HTML y CSS.
+- `data/`: CSV activos; `data/viejos/` conserva versiones antiguas.
+
 ## CSV necesarios
 
 Estructura recomendada de datasets:
@@ -18,7 +29,7 @@ Necesitas este archivo de entrada:
 Con este comando:
 
 ```powershell
-.\.venv\Scripts\python.exe generate_datasets.py
+.\.venv\Scripts\python.exe scripts\data\generate_datasets.py
 ```
 
 se generan los CSV base del proyecto:
@@ -31,7 +42,7 @@ se generan los CSV base del proyecto:
 
 ### Para preparar el pipeline de recomendacion
 
-`prepare_recommendation_data.py` necesita estos CSV en `data/`:
+`scripts/data/prepare_recommendation_data.py` necesita estos CSV en `data/`:
 
 - `usuarios.csv`
 - `videos.csv`
@@ -53,7 +64,7 @@ Metricas previstas:
 Para preparar los datos del recomendador:
 
 ```powershell
-.\.venv\Scripts\python.exe prepare_recommendation_data.py
+.\.venv\Scripts\python.exe scripts\data\prepare_recommendation_data.py
 ```
 
 El script genera la salida en `reco_output/` y, si esa carpeta esta bloqueada, en `reco_output_v2/`.
@@ -115,7 +126,7 @@ Se revisaron las ramas remotas `origin/feature` y `origin/FeatureEngineering` y 
 Para completar `thumbnail_url` y `thumbnail_source` en `data/videos.csv`:
 
 ```powershell
-.\.venv\Scripts\python.exe update_video_thumbnails.py --limit 100
+.\.venv\Scripts\python.exe scripts\data\update_video_thumbnails.py --limit 100
 ```
 
 Orden de resolucion:

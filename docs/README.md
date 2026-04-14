@@ -14,6 +14,7 @@ Esta carpeta organiza la documentacion por areas funcionales para que se pueda e
 - `03_recomendacion/retrieval_y_ranking_v1.md`: arquitectura elegida, comparativa de modelos y como explicarlo.
 - `03_recomendacion/retrieval_diagnostico_v1.md`: por que el retrieval exacto parecia malo y como leerlo bien.
 - `03_recomendacion/retrieval_multisource_v1.md`: mejora de retrieval para home y resultados frente al CF puro.
+- `03_recomendacion/notas_recomendador.md`: notas estrategicas sobre home, watch-next y busqueda.
 - `04_pydantic/README.md`: indice de modelos Pydantic.
 - `04_pydantic/modelos_base_y_eventos.md`: enums, modelos base y eventos.
 - `04_pydantic/modelos_de_negocio.md`: perfil de usuario, catalogo de videos y sesion de recomendacion.
@@ -29,7 +30,7 @@ El proyecto no esta construido como una app final, sino como un entorno de prepa
 4. preparar datasets derivados para collaborative filtering y ranking
 5. auditar el dataset de ranking y construir una version balanceada para entrenamiento
 
-La parte de modelos `Pydantic` define como deberia verse el sistema final de recomendacion, aunque esos modelos todavia no aparecen conectados a una API ni a un entrenamiento en produccion.
+La app de demo vive en `app/` y usa `web/` para templates/estilos. Los scripts operativos se separan en `scripts/data/`, `scripts/training/` y `scripts/evaluation/`.
 
 ## Estado actual resumido
 

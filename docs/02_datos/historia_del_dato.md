@@ -10,7 +10,7 @@ Se parte de `data/youtube recommendation dataset.csv`, un dataset con eventos de
 
 ## 2. Primera normalizacion
 
-Con `generate_datasets.py` se hace una separacion en dos tablas:
+Con `scripts/data/generate_datasets.py` se hace una separacion en dos tablas:
 
 - `data/usuarios.csv`: una fila por evento usuario-video
 - `data/videos.csv`: una fila por video con metricas agregadas
@@ -61,7 +61,7 @@ Eso deja el catalogo en el estado mas completo del repositorio a nivel de metada
 
 ## 7. Preparacion para recomendacion
 
-Con `prepare_recommendation_data.py` el proyecto da el salto de limpieza general a ML para recomendacion:
+Con `scripts/data/prepare_recommendation_data.py` el proyecto da el salto de limpieza general a ML para recomendacion:
 
 - eventos limpios
 - labels implicitos
@@ -73,7 +73,7 @@ Con `prepare_recommendation_data.py` el proyecto da el salto de limpieza general
 
 ## 8. Formalizacion del dominio
 
-`recommendation_models.py` va un paso mas alla del CSV y modela la aplicacion futura:
+`app/recommendation_models.py` va un paso mas alla del CSV y modela la aplicacion futura:
 
 - sesiones
 - consultas
@@ -92,4 +92,4 @@ La parte mas consolidada es la de preparacion del dato. La parte de producto fin
 
 ## Decision importante pendiente
 
-El repo ya tiene `data/videos_completo.csv`, pero el script `prepare_recommendation_data.py` sigue leyendo `data/videos.csv`. Si se quiere que el pipeline use titulos y metadatos enriquecidos, la entrada activa debe cambiar.
+El repo conserva versiones antiguas en `data/viejos/`, pero el script `scripts/data/prepare_recommendation_data.py` sigue leyendo `data/videos.csv`. Si se quiere que el pipeline use otros titulos o metadatos enriquecidos, la entrada activa debe actualizarse en `data/videos.csv`.

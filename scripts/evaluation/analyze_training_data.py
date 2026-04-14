@@ -7,8 +7,9 @@ import numpy as np
 import pandas as pd
 
 
-DATASET_PATH = Path("reco_output_v2/ranking_dataset.csv")
-OUTPUT_DIR = Path("reports/training_audit_v1")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATASET_PATH = PROJECT_ROOT / "reco_output_v2" / "ranking_dataset.csv"
+OUTPUT_DIR = PROJECT_ROOT / "reports" / "training_audit_v1"
 
 LEAKAGE_HINT_PATTERNS = [
     "positive",

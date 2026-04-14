@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}YTFake{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}?v=20260414-home-three-cols">
   </head>
   <body class="sidebar-collapsed">
     {% block body %}{% endblock %}
@@ -167,19 +167,29 @@
         });
 
         document.querySelectorAll("[data-toggle-active]").forEach(function (button) {
-          button.addEventListener("click", function () {
-            const active = button.classList.toggle("active");
+          function setActiveState(active) {
+            button.classList.toggle("active", active);
             button.setAttribute("aria-pressed", active ? "true" : "false");
+            const activeLabel = button.getAttribute("data-active-label");
+            const inactiveLabel = button.getAttribute("data-inactive-label");
+            if (activeLabel && inactiveLabel) {
+              button.textContent = active ? activeLabel : inactiveLabel;
+            }
+          }
+
+          button.addEventListener("click", function () {
             const endpoint = button.getAttribute("data-endpoint");
-            if (!endpoint || !active) return;
+            const wasActive = button.classList.contains("active") || button.getAttribute("aria-pressed") === "true";
+            if (wasActive || !endpoint) return;
+
+            setActiveState(true);
 
             fetch(endpoint, { method: "POST", headers: { "Accept": "application/json" } })
               .then(function (response) {
                 if (!response.ok) throw new Error("engagement failed");
               })
               .catch(function () {
-                button.classList.remove("active");
-                button.setAttribute("aria-pressed", "false");
+                setActiveState(false);
               });
           });
         });
@@ -200,6 +210,95 @@
             document.querySelectorAll("[data-watch-panel]").forEach(function (panel) {
               panel.classList.toggle("active", panel.getAttribute("data-watch-panel") === key);
             });
+          });
+        });
+      })();
+
+      (function () {
+        const hero = document.querySelector("[data-home-hero]");
+        if (!hero) return;
+
+        const slides = Array.from(hero.querySelectorAll("[data-home-hero-slide]"));
+        const dots = Array.from(hero.querySelectorAll("[data-home-hero-dot]"));
+        if (slides.length < 2) return;
+
+        let activeIndex = 0;
+        let timerId = null;
+
+        function showSlide(nextIndex) {
+          activeIndex = (nextIndex + slides.length) % slides.length;
+          slides.forEach(function (slide, index) {
+            const active = index === activeIndex;
+            slide.classList.toggle("active", active);
+            slide.setAttribute("aria-hidden", active ? "false" : "true");
+            slide.style.opacity = active ? "1" : "0";
+            slide.style.pointerEvents = active ? "auto" : "none";
+            slide.style.transform = active ? "scale(1)" : "scale(1.018)";
+          });
+          dots.forEach(function (dot, index) {
+            dot.classList.toggle("active", index === activeIndex);
+          });
+        }
+
+        function startTimer() {
+          window.clearInterval(timerId);
+          timerId = window.setInterval(function () {
+            showSlide(activeIndex + 1);
+          }, 5200);
+        }
+
+        dots.forEach(function (dot, index) {
+          dot.addEventListener("click", function () {
+            showSlide(index);
+            startTimer();
+          });
+        });
+
+        hero.addEventListener("mouseenter", function () {
+          window.clearInterval(timerId);
+        });
+        hero.addEventListener("mouseleave", startTimer);
+        startTimer();
+      })();
+
+      (function () {
+        const STORAGE_KEY = "ytfake_dev_thumbnails";
+        const toggles = Array.from(document.querySelectorAll("[data-dev-thumbnail-toggle]"));
+        const targets = Array.from(document.querySelectorAll("[data-thumbnail-target]"));
+        if (!toggles.length || !targets.length) return;
+
+        function cssImageUrl(url) {
+          return "url('" + String(url || "").replace(/\\/g, "\\\\").replace(/'/g, "%27") + "')";
+        }
+
+        function applyMode(devMode) {
+          document.body.classList.toggle("developer-thumbnails", devMode);
+          toggles.forEach(function (toggle) {
+            toggle.classList.toggle("active", devMode);
+            toggle.textContent = devMode ? "Modo dev: colores" : "Modo normal: fotos";
+          });
+
+          targets.forEach(function (target) {
+            const url = devMode
+              ? target.getAttribute("data-dev-thumbnail")
+              : target.getAttribute("data-real-thumbnail");
+            if (!url) return;
+
+            const gradient = target.getAttribute("data-thumbnail-gradient") || "linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52))";
+            target.style.backgroundImage = gradient + ", " + cssImageUrl(url);
+            target.style.backgroundSize = "cover";
+            target.style.backgroundPosition = "center";
+          });
+        }
+
+        let devMode = window.localStorage.getItem(STORAGE_KEY) === "1";
+        applyMode(devMode);
+
+        toggles.forEach(function (toggle) {
+          toggle.addEventListener("click", function () {
+            devMode = !devMode;
+            window.localStorage.setItem(STORAGE_KEY, devMode ? "1" : "0");
+            applyMode(devMode);
           });
         });
       })();

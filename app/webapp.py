@@ -9,10 +9,10 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from reco_serving import get_recommendation_service
+from app.reco_serving import get_recommendation_service
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[1]
 TEMPLATES_DIR = BASE_DIR / "web" / "templates"
 STATIC_DIR = BASE_DIR / "web" / "static"
 
@@ -144,6 +144,25 @@ def search_page(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="search.html",
+        context={
+            "request": request,
+            **page,
+        },
+    )
+
+
+@app.get("/history")
+def history_page(request: Request):
+    user_id = current_user_id(request)
+    guest_id = current_guest_id(request)
+    if user_id is None and guest_id is None:
+        return RedirectResponse(url="/login", status_code=302)
+
+    service = get_recommendation_service()
+    page = service.history_page(user_id) if user_id is not None else service.guest_history_page(guest_id)
+    return templates.TemplateResponse(
+        request=request,
+        name="history.html",
         context={
             "request": request,
             **page,

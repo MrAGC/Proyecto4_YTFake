@@ -16,20 +16,20 @@ Por el codigo y las notas del repo, la secuencia mas probable de trabajo ha sido
 
 1. Se parte de un dataset bruto llamado `youtube recommendation dataset.csv`.
 2. Se detectan problemas de calidad en varias columnas (`liked`, `category`, `timestamp`).
-3. Se crea `generate_datasets.py` para separar el dataset original en dos tablas mas utiles:
+3. Se crea `scripts/data/generate_datasets.py` para separar el dataset original en dos tablas mas utiles:
    - historial de eventos de usuario
    - catalogo agregado de videos
 4. Se deja `titulo` y `que_pasa` vacios en el catalogo de videos para rellenarlos mas adelante.
 5. Se crea `generar_que_pasa.py` para generar keywords sinteticas por categoria.
 6. Se genera otra version del catalogo con titulos.
-7. Se crea `prepare_recommendation_data.py` para construir datasets de ML:
+7. Se crea `scripts/data/prepare_recommendation_data.py` para construir datasets de ML:
    - limpieza de eventos
    - features por usuario
    - features por video
    - interacciones agregadas usuario-video
    - splits para collaborative filtering
    - dataset de ranking
-8. En paralelo, `recommendation_models.py` define la estructura conceptual del sistema final usando `Pydantic`.
+8. En paralelo, `app/recommendation_models.py` define la estructura conceptual del sistema final usando `Pydantic`.
 
 ## Lo que el proyecto intenta demostrar
 
@@ -48,8 +48,8 @@ No hay aun una aplicacion final, un servicio online ni un entrenamiento integrad
 
 La carpeta `data/` es la fuente operativa principal. Los scripts trabajan sobre esos archivos:
 
-- `generate_datasets.py` escribe en `data/`
-- `prepare_recommendation_data.py` lee `data/usuarios.csv` y `data/videos.csv`
+- `scripts/data/generate_datasets.py` escribe en `data/`
+- `scripts/data/prepare_recommendation_data.py` lee `data/usuarios.csv` y `data/videos.csv`
 - `reco_output/` guarda los datasets derivados para ML
 
 Punto importante: ahora mismo el pipeline usa `data/videos.csv` como entrada activa del catalogo. Eso significa que el dataset fusionado `data/videos_completo.csv` existe, pero no entra en la preparacion del recomendador hasta que se sustituya la entrada o se ajuste el script.

@@ -17,6 +17,7 @@
     <button type="submit">Buscar</button>
   </form>
   <div class="topbar-actions">
+    <button class="ghost-link thumbnail-mode-button" type="button" data-dev-thumbnail-toggle>Modo normal: fotos</button>
     <a href="/home" class="ghost-link">Inicio</a>
   </div>
 </header>
@@ -32,7 +33,6 @@
       <div class="placeholder-points">
         <span>Usuario {{ user.user_id }}</span>
         <span>{{ user.session_focus }}</span>
-        <span>{{ search_stack }}</span>
         {% if query %}
         <span>{{ result_count }} resultados</span>
         {% endif %}
@@ -43,25 +43,33 @@
     <section class="shelf">
       <div class="section-header">
         <h2>Resultados para "{{ query }}"</h2>
-        <p>Abre algunos videos para alimentar la sesion.</p>
       </div>
       {% if results %}
-      <div class="row-grid">
+      <div class="search-results-list">
         {% for video in results %}
-        <a class="video-card" href="/watch/{{ video.video_id }}?source=search&q={{ query | urlencode }}">
+        <a class="search-result-card" href="/watch/{{ video.video_id }}?source=search&q={{ query | urlencode }}">
           <div
-            class="thumb thumb-{{ (video.thumbnail_seed % 6) + 1 }}"
+            class="search-result-thumb thumb-{{ (video.thumbnail_seed % 6) + 1 }}"
+            data-thumbnail-target
+            data-real-thumbnail="{{ video.thumbnail_real_url }}"
+            data-dev-thumbnail="{{ video.thumbnail_dev_url }}"
+            data-thumbnail-gradient="linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52))"
             {% if video.thumbnail_url %}
             style="background-image: linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52)), url('{{ video.thumbnail_url }}'); background-size: cover; background-position: center;"
             {% endif %}
           >
             <span class="duration">{{ video.duration_text }}</span>
           </div>
-          <div class="video-meta">
+          <div class="search-result-meta">
             <h3>{{ video.title }}</h3>
-            <p>{{ video.channel_name }}</p>
-            <p>{{ video.category }} | {{ video.views_text }}</p>
-            <p>#{{ video.search_rank }} | score {{ video.search_score }} | {{ video.search_ranker }}</p>
+            <p>{{ video.views_text }} | {{ video.freshness_text }}</p>
+            <div class="search-result-channel">
+              <span class="channel-avatar">{{ video.channel_name[:1] | upper }}</span>
+              <div>
+                <strong>{{ video.channel_name }}</strong>
+                <p>{{ video.category }}</p>
+              </div>
+            </div>
           </div>
         </a>
         {% endfor %}

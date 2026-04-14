@@ -7,6 +7,10 @@
 <a class="video-card" href="/watch/{{ video.video_id }}">
   <div
     class="thumb thumb-{{ (video.thumbnail_seed % 6) + 1 }}"
+    data-thumbnail-target
+    data-real-thumbnail="{{ video.thumbnail_real_url }}"
+    data-dev-thumbnail="{{ video.thumbnail_dev_url }}"
+    data-thumbnail-gradient="linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52))"
     {% if video.thumbnail_url %}
     style="background-image: linear-gradient(135deg, rgba(9, 10, 14, 0.18), rgba(9, 10, 14, 0.52)), url('{{ video.thumbnail_url }}'); background-size: cover; background-position: center;"
     {% endif %}
@@ -41,7 +45,7 @@
     <button type="submit">Buscar</button>
   </form>
   <div class="topbar-actions">
-    <span class="stack-badge">{{ model_stack }}</span>
+    <button class="ghost-link thumbnail-mode-button" type="button" data-dev-thumbnail-toggle>Modo normal: fotos</button>
     <a href="/logout" class="ghost-link">Salir</a>
   </div>
 </header>
@@ -64,6 +68,55 @@
       </form>
     </section>
     {% else %}
+    {% if hero_videos %}
+    <section
+      class="home-spotlight"
+      data-home-hero
+      aria-label="Videos destacados"
+      style="position: relative; min-height: 410px; overflow: hidden;"
+    >
+      <div class="spotlight-slides" style="position: absolute; inset: 0;">
+        {% for video in hero_videos %}
+        <a
+          class="spotlight-slide{% if loop.first %} active{% endif %}"
+          href="/watch/{{ video.video_id }}"
+          data-home-hero-slide
+          data-thumbnail-target
+          data-real-thumbnail="{{ video.thumbnail_real_url }}"
+          data-dev-thumbnail="{{ video.thumbnail_dev_url }}"
+          data-thumbnail-gradient="linear-gradient(90deg, rgba(9, 10, 14, 0.94) 0%, rgba(9, 10, 14, 0.68) 42%, rgba(9, 10, 14, 0.18) 100%)"
+          aria-hidden="{{ 'false' if loop.first else 'true' }}"
+          {% if video.thumbnail_url %}
+          style="position: absolute; inset: 0; display: grid; align-items: end; opacity: {{ '1' if loop.first else '0' }}; pointer-events: {{ 'auto' if loop.first else 'none' }}; transform: {{ 'scale(1)' if loop.first else 'scale(1.018)' }}; background-image: linear-gradient(90deg, rgba(9, 10, 14, 0.94) 0%, rgba(9, 10, 14, 0.68) 42%, rgba(9, 10, 14, 0.18) 100%), url('{{ video.thumbnail_url }}'); background-size: cover; background-position: center;"
+          {% else %}
+          style="position: absolute; inset: 0; display: grid; align-items: end; opacity: {{ '1' if loop.first else '0' }}; pointer-events: {{ 'auto' if loop.first else 'none' }}; transform: {{ 'scale(1)' if loop.first else 'scale(1.018)' }};"
+          {% endif %}
+        >
+          <div class="spotlight-copy">
+            <p class="eyebrow">Destacado</p>
+            <h1>{{ video.title }}</h1>
+            <p>{{ video.category }} | {{ video.channel_name }} | {{ video.views_text }}</p>
+            <div class="spotlight-actions">
+              <span class="primary-button">Ver ahora</span>
+              <span class="secondary-button">{{ video.duration_text }}</span>
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      <div class="spotlight-dots" aria-label="Cambiar destacado">
+        {% for video in hero_videos %}
+        <button
+          class="{% if loop.first %}active{% endif %}"
+          type="button"
+          data-home-hero-dot="{{ loop.index0 }}"
+          aria-label="Destacado {{ loop.index }}"
+        ></button>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
     <section class="home-topic-bar" aria-label="Filtros de inicio">
       <a class="topic-chip active" href="/home">Todo</a>
       <a class="topic-chip" href="/search?q={{ user.favorite_category }}">{{ user.favorite_category }}</a>
@@ -79,7 +132,6 @@
     <section class="shelf youtube-shelf">
       <div class="section-header">
         <h2>{{ shelf["title"] }}</h2>
-        <p>{{ shelf.get("description", "Retrieval historico + senal de sesion + ranker final.") }}</p>
       </div>
       <div class="row-grid">
         {% for video in shelf["items"] %}

@@ -90,7 +90,7 @@ Lo que si se ha hecho, y era lo importante, es:
 - construir labels y `implicit_score`
 - separar senales por usuario, item y canal
 
-Eso esta implementado en `prepare_recommendation_data.py`.
+Eso esta implementado en `scripts/data/prepare_recommendation_data.py`.
 
 ### 2. Auditoria del dataset de ranking
 
@@ -100,7 +100,7 @@ Se ha creado una auditoria especifica en:
 
 Y sale de:
 
-- `analyze_training_data.py`
+- `scripts/evaluation/analyze_training_data.py`
 
 Hallazgos importantes:
 
@@ -170,7 +170,7 @@ Los negativos sinteticos no son aleatorios puros. Se construyen con videos no vi
 
 El trainer del ranker esta en:
 
-- `train_recommender_ranker.py`
+- `scripts/training/train_recommender_ranker.py`
 
 Y los artefactos salen en:
 

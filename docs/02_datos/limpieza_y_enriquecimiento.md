@@ -1,6 +1,6 @@
 # Limpieza y enriquecimiento de datos
 
-## Limpieza observada en `generate_datasets.py`
+## Limpieza observada en `scripts/data/generate_datasets.py`
 
 ### Normalizacion de `liked`
 
@@ -84,7 +84,7 @@ No aparece en el codigo un generador automatico de titulos dentro de este repo, 
 - no describe cada video de forma unica
 - sirve mas como metadata de apoyo que como anotacion fiel de contenido real
 
-## Limpieza adicional en `prepare_recommendation_data.py`
+## Limpieza adicional en `scripts/data/prepare_recommendation_data.py`
 
 ### Sobre videos
 

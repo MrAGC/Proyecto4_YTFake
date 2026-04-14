@@ -120,7 +120,7 @@ Porque encaja:
 
 Script:
 
-- `compare_ranking_models.py`
+- `scripts/evaluation/compare_ranking_models.py`
 
 En esta version se ha usado una `MLPClassifier` densa como baseline pointwise.
 
@@ -144,7 +144,7 @@ Limite:
 
 Script:
 
-- `compare_ranking_models.py`
+- `scripts/evaluation/compare_ranking_models.py`
 
 Que hace:
 

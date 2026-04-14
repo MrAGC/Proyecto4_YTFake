@@ -3,11 +3,16 @@ from __future__ import annotations
 import json
 import math
 import pickle
+import sys
 from pathlib import Path
 
 import pandas as pd
 
-from train_retrieval_cf import (
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from ml.train_retrieval_cf import (
     SECONDARY_ITEM_WEIGHT,
     TOP_RECOMMENDATIONS,
     TOP_USER_NEIGHBORS,
@@ -18,10 +23,10 @@ from train_retrieval_cf import (
 )
 
 
-CF_DATASET_PATH = Path("reco_output_v2/cf_interactions.csv")
-VIDEO_FEATURES_PATH = Path("reco_output_v2/video_features.csv")
-RETRIEVAL_MODEL_PATH = Path("models/retrieval_cf_v1/retrieval_model.pkl")
-OUTPUT_DIR = Path("reports/retrieval_diagnostics_v1")
+CF_DATASET_PATH = PROJECT_ROOT / "reco_output_v2" / "cf_interactions.csv"
+VIDEO_FEATURES_PATH = PROJECT_ROOT / "reco_output_v2" / "video_features.csv"
+RETRIEVAL_MODEL_PATH = PROJECT_ROOT / "models" / "retrieval_cf_v1" / "retrieval_model.pkl"
+OUTPUT_DIR = PROJECT_ROOT / "reports" / "retrieval_diagnostics_v1"
 
 
 def dcg_at_k(recommended_items: list[int], relevant_items: set[int], k: int) -> float:

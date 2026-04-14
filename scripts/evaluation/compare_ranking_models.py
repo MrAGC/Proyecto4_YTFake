@@ -13,8 +13,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 
 
-DATASET_PATH = Path("reco_output_v2/training_dataset_balanced_v1.csv")
-OUTPUT_DIR = Path("models/ranker_compare_v1")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATASET_PATH = PROJECT_ROOT / "reco_output_v2" / "training_dataset_balanced_v1.csv"
+OUTPUT_DIR = PROJECT_ROOT / "models" / "ranker_compare_v1"
 
 CATEGORICAL_COLUMNS = [
     "surface",

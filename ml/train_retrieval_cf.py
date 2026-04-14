@@ -10,8 +10,9 @@ import numpy as np
 import pandas as pd
 
 
-CF_DATASET_PATH = Path("reco_output_v2/cf_interactions.csv")
-OUTPUT_DIR = Path("models/retrieval_cf_v1")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+CF_DATASET_PATH = PROJECT_ROOT / "reco_output_v2" / "cf_interactions.csv"
+OUTPUT_DIR = PROJECT_ROOT / "models" / "retrieval_cf_v1"
 
 TOP_USER_NEIGHBORS = 40
 TOP_ITEM_NEIGHBORS = 80

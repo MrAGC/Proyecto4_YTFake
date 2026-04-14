@@ -10,9 +10,10 @@ import xgboost as xgb
 from sklearn.metrics import average_precision_score, log_loss, roc_auc_score
 
 
-PREPARED_DATASET = Path("reco_output_v2/training_dataset_balanced_v1.csv")
-BASELINE_DATASET = Path("reco_output_v2/ranking_dataset.csv")
-DEFAULT_OUTPUT_DIR = Path("models/ranker_v1")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PREPARED_DATASET = PROJECT_ROOT / "reco_output_v2" / "training_dataset_balanced_v1.csv"
+BASELINE_DATASET = PROJECT_ROOT / "reco_output_v2" / "ranking_dataset.csv"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "models" / "ranker_v1"
 
 CATEGORICAL_COLUMNS = [
     "surface",

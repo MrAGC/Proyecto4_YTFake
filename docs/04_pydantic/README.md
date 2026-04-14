@@ -2,7 +2,7 @@
 
 Toda la modelizacion `Pydantic` del proyecto esta concentrada en un solo archivo:
 
-- `recommendation_models.py`
+- `app/recommendation_models.py`
 
 Eso significa que no hay varios modulos de esquemas repartidos por el repo. La ventaja es que la vision del dominio esta muy centralizada y se puede leer como especificacion funcional del sistema.
 
