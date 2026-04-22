@@ -1,0 +1,316 @@
+
+
+--- PAGE 1 ---
+Negative 
+Sampling
+How to interact and evaluate stuff 
+from the real world? How do we 
+talk with the real world?
+Màster en 
+Intel.ligència 
+Artificial i BigData
+
+
+--- PAGE 2 ---
+What have we done  last friday?
+First of all..
+Text
+
+
+
+--- PAGE 3 ---
+Today’s plan
+- Why is it important?
+- Real data problem in recommendation systems
+- What’s negative sampling?
+- Types of negative Sampling.
+- How does it affect Rankings
+- Example.
+- Code.
+- Game.
+
+
+--- PAGE 4 ---
+Things that we don’t like matter!
+We know when people 
+likes a thing but… What if 
+they hate it?
+Text
+
+
+
+--- PAGE 5 ---
+Why should I care about it?
+
+
+
+--- PAGE 6 ---
+Why should I care about it?
+- We are focusing all our systems in being super good at telling WHAT do you like. 
+- Get the most similar thing.
+- Ensure you go on vacations to the place where the movie you liked.
+- See the same videos as your friends.
+- Listen the song that MOST fits your mood.
+- But… How do you decide things??? 
+- EXAMPLE: How can I choose where to do a PhD? [TABLE AND WRITING] 
+- (good lecture) → 
+https://www.bcg.com/x/the-multiplier/explaining-negative-sampling-in-recommen
+der-systems
+- We can really like to know that “uf this idont like neither that. So I get the best of 
+the worst!”
+
+
+--- PAGE 7 ---
+Things from classic signal processing to recommendation
+The Real issue with our 
+data in the 
+recommendation 
+systems
+Text
+
+
+
+--- PAGE 8 ---
+The real issue
+- In classic processing we have always used this thing:
+- X (item) → LABEL
+- But here… 
+- (user, item) → interaction¿?
+- 99% of the pair items that we want are non existing!!!
+- Charizard > Venasaur :)) BUT
+- ¿Snorlax > Charizard?
+- ¿Gengar > Venasaur?
+- Missing data, way toooo complex things.
+- Might be missing negative data.
+
+
+
+--- PAGE 9 ---
+How to use it as a negative thing
+What’s negative 
+sampling?
+Text
+
+
+
+--- PAGE 10 ---
+Synthetic might always be good. (And not just GenAI)
+- We would like to artificially generate negative examples to train a model. So we can 
+assume stuff always to ensure what we like the most for example, instead of 
+generating one thing use many more:
+- We had:
+○ Croissant Mistral > Croissant 365 → Positive
+- We will generate:
+○ Croissant Mistral > Croissant 365 → Positive
+○ Croissant Mistral > Croissant Vivari → Negative assumed
+○ Croissant Mistral > Croissant Baluard → Negative assumed
+- So we generate and add into the pipeline other possible labels to work with that 
+are way to generic or way to weird. So it is like automatically labeling our data with 
+weird options when the options are not clear or not SUPER directly objective. 
+
+
+--- PAGE 11 ---
+How can we build our systems
+Types Of Negative 
+Sampling
+Text
+
+
+
+--- PAGE 12 ---
+Random Negative Sampling
+- Yes, assuming random comparisons and saying this one is better 
+than the other so we can train because jeje. 
+- PROS:
+- Easy; Fast;
+- CONS:
+- Way to easy and weird for the model. You might not 
+generalise anything.
+
+
+
+--- PAGE 13 ---
+Hard Negative Sampling
+- You first check your data.
+- Then you must select the examples that are HARDER to choose 
+between and you directly put it → Mistral vs. Baluard
+- Since you are forcing the hardest options, you are basically 
+ensuring it must choose in the ones where deciding is more “meh 
+everything’s fine” so you can get better approaches.
+- PROS:
+- It makes the model better automatically. Also useful for DL.
+- Realistic.
+- CONS:
+- Complex to do.
+
+
+--- PAGE 14 ---
+Hard Negative Sampling
+
+
+
+--- PAGE 15 ---
+Hard Negative Sampling
+- So we ensure to train with very specific part.
+- HOW TO GENERATE THEM?
+- Using embeddings `model.most_similar(item)`
+- You get the closest to the final solution or the one that you 
+want.
+- It learns generalization when training with the negative of 
+those since it ensure to break all options.
+
+
+--- PAGE 16 ---
+In-Batch Negatives (more for actual DL)
+- Using other examples from the test as free negatives. So you 
+never test with a single label, you test with a set of negatives. 
+- Basically, if a thing happens it implies the other one is gonna 
+happen!!
+- If a person buys a pair of vans, it can be implied that he will buy a 
+guitar and a skateboard. (JK)
+- So a batch is: 
+- batch = [item1, item2, item3] → Being the positives and 
+negatives the other batch.
+
+
+
+--- PAGE 17 ---
+In-Batch Negatives (more for actual DL)
+- It is mostly used to train “Word2Vec” and “Node2Vec” and 
+“Wav2Vec”. 
+- So generally good to train Transformers :) 
+- IS A TRANSFORMER A RECOMMENDAITON SYSTEM=
+- PROS:
+- Free (not need to generate anything)
+- Efficient and scalable.
+- CONS:
+- Negatives can be reeeeally bad.
+- Not always hard.
+- Depends.
+
+
+
+--- PAGE 18 ---
+Dynamic / Adversarial Negatives (Pro-level jeje)
+- Super powerful. The model generates its own mistakes to learn 
+from.
+- We predict a thing, and from this one we are like oh wait, we 
+have the opposite. We use it to train. 
+- So we are basically telling the system “You are not doing it right”.
+- THE FLOW:
+- Model predicts the rank.
+- Get the biggest mistakes.
+- Convert into negatives.
+- Re-train.
+
+
+
+--- PAGE 19 ---
+Dynamic / Adversarial Negatives (Pro-level jeje)
+```python
+candidates = model.predict(rival)
+hard_negatives = top_wrong_predictions(candidates)
+train(model, hard_negatives)
+```
+
+
+--- PAGE 20 ---
+Dynamic / Adversarial Negatives (Pro-level jeje)
+- Iterably learning. Any time using more stuff.
+- Used everywhere to be honest. Whenever I give you something 
+you dislike → retrain
+- Yes, it is what youtube does and why it stopped using 
+rankings and started using binary.
+- PROS:
+- Powerful | Performs AMAZINGLY | Adaptive.
+- CONS:
+- Complex | Iterative Pipeline | Easy to overfit.
+
+
+--- PAGE 21 ---
+TO SUM UP
+
+
+
+--- PAGE 22 ---
+To Sum Up. (movies example)
+- HARD-NEGATIVE for a user who potentially likes Breaking Bad:
+- Peppa Pig | One Piece | La química del món | Prison Break
+- HARD-NEGATIVE for a user who has an iPhone 16:
+- Lenovo A32 | MSI Katana Fullequip | MacBook Air M4
+- HARD-NEGATIVE for a user who listens to Bad Bunny:
+- Mozart | J Balvin |Depresión Sonora | Beatles.
+
+
+--- PAGE 23 ---
+To Sum Up. (movies example)
+- in-batch → UserA : breaking bad | UserB : Stranger Things | 
+UserC: Peppa Pig
+- For the user A → breaking bad > peppa pig and stranger things.
+- UserA : Drake | UserB : WiiSportsTheme | UserC : La cançó del 
+Mic.
+- Wii sports implies that drake and la cançó del mix are shitty
+- FOR THE LAST ONE WILL BE: I recommend [Bojac Horseman, 
+Breaking bad, Peppa pig, south park] the user sees South Park.
+- Automatically I use the others as negative.
+
+
+--- PAGE 24 ---
+Some nice specific stuff
+How does it affect on 
+ranking?
+Text
+
+
+
+--- PAGE 25 ---
+For rankings
+- A model to rank needs ITEM A > ITEM B
+- But we just have USER → ITEM
+- Where do we get ItemB?
+- Using everything I have explained before :))
+- The negatives gives the idea on why is Bob the Builder better than Mani Manitas.
+- FOR PAIRWISE: we cannot use it (the log(sigma(sa-sb))) won’t work. 
+- NCF → learns probability. It needs negative samplings to know what is 0. So we can predict Regression :)
+- Embeddings → we need to make it learn what is similar vs. what is not similar.
+- Retrieval needs always this stuff.
+
+
+--- PAGE 26 ---
+GENERATE THE NEGATIVE
+LET’S PLAY
+Text
+
+
+
+--- PAGE 27 ---
+How does it work?
+I say: A user and a positive.
+→ You give me a negative and a reason why :) 
+
+
+
+--- PAGE 28 ---
+PYTHON
+
+
+
+--- PAGE 29 ---
+PYTHON
+- HARD NEGATIVE EXAMPLE
+
+
+
+--- PAGE 30 ---
+PYTHON
+
+
+
+--- PAGE 31 ---
+PYTHON
+
+
+
+--- PAGE 32 ---
+Gràcies
+Text

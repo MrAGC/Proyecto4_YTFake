@@ -117,17 +117,6 @@
     </section>
     {% endif %}
 
-    <section class="home-topic-bar" aria-label="Filtros de inicio">
-      <a class="topic-chip active" href="/home">Todo</a>
-      <a class="topic-chip" href="/search?q={{ user.favorite_category }}">{{ user.favorite_category }}</a>
-      <a class="topic-chip" href="/search?q={{ user.recent_category }}">{{ user.recent_category }}</a>
-      <a class="topic-chip" href="/search?q=gaming">Videojuegos</a>
-      <a class="topic-chip" href="/search?q=noticias">Noticias</a>
-      <a class="topic-chip" href="/search?q=tecnologia">Tecnologia</a>
-      <a class="topic-chip" href="/search?q=educacion">Educacion</a>
-      <a class="topic-chip" href="/search?q=deportes">Deportes</a>
-    </section>
-
     {% for shelf in shelves %}
     <section class="shelf youtube-shelf">
       <div class="section-header">

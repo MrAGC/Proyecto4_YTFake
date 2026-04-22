@@ -1,0 +1,318 @@
+
+
+--- PAGE 1 ---
+Evaluation 
+Metrics
+How do we know if something is 
+correct? Is our system fair?
+Màster en 
+Intel.ligència 
+Artificial i BigData
+
+
+--- PAGE 2 ---
+What have we done  last friday?
+First of all..
+Text
+
+
+
+--- PAGE 3 ---
+Today’s plan
+- Why is it important?
+- Types of evaluation
+- Classification vs recommendation
+- Specific metrics
+- Hit rate
+- MAP
+- NDCG
+- Diversity Metrics
+- To sum up
+- Exercice
+
+
+--- PAGE 4 ---
+Why is it the most important thing
+Why should we use 
+metrics?
+Text
+
+
+
+--- PAGE 5 ---
+Why should you always analyse it? How? What’s the target?
+- How can you say that your recommendation system is good enough?
+- Are we being fair? (WE WILL DO A LESSON ON FAIRNESS)
+- How to know if something is relevant or irrelevant or if we are ordering it in a non 
+efficient way?
+- We should know its accuracy.
+- Its quality
+- Its diversity
+- User experience.
+
+
+--- PAGE 6 ---
+When prod matters more than ever.
+The TWO main types of 
+evaluation
+Text
+
+
+
+--- PAGE 7 ---
+Offline evaluation
+- We should always care about how important is the stuff happening.
+○ We are always training stuff. So it is always nice to know what are we gonna 
+deploy.
+- Spotify logs, historical of battles, clicks…
+- It is fast, we know how to do it. We can reproduce it.
+WHAT’S THE ISSUE??? → We don’t know how to mitigate prod biases.
+
+
+--- PAGE 8 ---
+Online evaluation
+- A/B testing with real users.
+- Quantity of clicks.
+- Conversion rates.
+- Basically we want to ensure that a user uses the system Not just that we are 
+good, that we are actually converting..
+- We could potentially used it on our project, but well, let’0s check how to do a 
+pipeline (it will be drawn in a blackboard)
+
+
+--- PAGE 9 ---
+How to ensure our retrieval is good.
+Classification
+vs.
+Recommendation.
+Text
+
+
+
+--- PAGE 10 ---
+Metrics used normally.
+- Let’s remember the most used once; let’d give the formulas for each metric:
+○ Accuracy → 
+○ Precision → 
+○ Recall → 
+○ F1-Score →
+
+
+--- PAGE 11 ---
+Can we use it to recommend?
+- How would you apply any of those formulas in a recommendation 
+system?
+
+
+
+--- PAGE 12 ---
+Get the good one please.
+Metrics For 
+Recommendations
+Text
+
+
+
+--- PAGE 13 ---
+Precision@K
+- Precision@k = (Relevant items in top k) / k
+- Top 5 recommended → how many of them were good?
+- [Charizard, Lapras, Snorax, Pikachu, Gengar] → useful 
+[charizar & gengar] → precision@5 = ⅖ =0.4
+- 2 out of 5 were good.
+- From the recommended items, how much were good?
+
+
+
+--- PAGE 14 ---
+Recall@K
+- Recall@k = (Relevant items in top k) / (total relevant items)
+- How many relevant stuff was existing? 
+- [Charizard, Blaziken, Gengar] → useful [charizar & gengar] 
+→ precision@5 = 2/3 =0.667
+- 2 out of 3 were predicted.
+- How many from the good ones did we find?
+
+
+
+--- PAGE 15 ---
+Some nice specific stuff
+Specific Metrics: 
+HIT RATE
+Text
+
+
+
+--- PAGE 16 ---
+Some nice specific stuff
+Specific Metrics: 
+Text
+
+
+
+--- PAGE 17 ---
+HitRate@K
+- HitRate@K –= [1 if at least one item is relevant in our top-k else 0]
+- Top-5 has Charizard → HitRate@5 = 1
+- Top5 has Charizard and Blaziken → hitRate@5 = 1
+- Very used by netflix and YouTube since it is nice ones we have one good item at least. So it does love 
+Finding at least one good.
+
+
+--- PAGE 18 ---
+MAP (Mean Average Precision)
+- Averages the precision for each relevant position.
+- We are awarding that relevant items are ranked higher.
+- The formula:
+- MAP = (1/|R|)*SUM(Precision@K)
+- Where R is the total number of relevant items
+- Using the same example as before:
+- relevant items = [Charizard, Blaziken, Gengar] we predict → [Lapras, Charizard, Gengar, Hitmochan, 
+Magikarp Blaziken] → What’s the value?
+
+
+--- PAGE 19 ---
+NDCG (Normalized Discounted Cumulative Gain)
+- (Seen two classes ago= where DCG@K is:
+- Where rel_i is the relevance of an item at position i.
+- It penalizes that good items are down.
+- IDCG → Perfect ranking.
+- NDCG@k = (DCG@K) / (IDCG@K)
+- Charizard → 3 | Lapras → 2 | Gengar → 1 | Snorlax → 0|
+- 3 = Amazing | 2 = Nice | 1 = ok | 0 = FATAL
+- We predict [Laptras, Charizard, Snorlax, Gengar] 
+■ POS 1 = [2/log_2(2) = 2/ 1 = 2
+■ POS2 = 3/log_2(3) = 1.89
+■ POS3 = 0/log_2(4) = 0
+■ POS4 = 1/log_2(5) = 0.43
+■ DCG = 2+1.89+0+0.43 = 4.32
+■ IDCG = 3 + 1.26 + 0.5 + 0 = 4.76
+- 4.32/4.76 = 0.91 nice
+
+
+
+--- PAGE 20 ---
+NDCG (Normalized Discounted Cumulative Gain)
+- We can understand it as:
+- 1: AMAZING
+- 0.8 → good
+- 0.5 → meh
+- below → FATAL.
+
+
+
+--- PAGE 21 ---
+A bit of important stuff.
+DIVERSITY METRICS
+Text
+
+
+
+--- PAGE 22 ---
+Coverage
+- Let’s remember, a recommender should not be just precise, also BINTERESTING
+○ Coverage = (items recommended ) / items total 
+■ If it is always recommending the same… maybe we have an issue. So it must be different to just 
+enter on a loop, otherwise if it is always showing the same movie…. MEH
+
+
+--- PAGE 23 ---
+Diversity
+- Check if items are the same or there is a bit of diversity.
+- We really need t to generate engagement:
+○ [Charizard, Blaziken, Inferno] → Always the same
+○ [Charizard, Lapras, Hitmonlee] → Diverse.
+
+
+--- PAGE 24 ---
+Novelty
+- How frequently are we showing things the user is not knowing?
+○ Not necessarily, but it is always good to ensure we build some engae.
+○ Imagine Spotify always tellign you songs that you know… you might get bored.
+- Percentage of new stuff shown to the user
+
+
+--- PAGE 25 ---
+Serendipity
+- Reommendations completely unexpected but somehow useful.
+○ Am I recommending una tapa de vater to someone and suddenly he/she/they was needing it?
+
+
+
+--- PAGE 26 ---
+Some context
+TO SUM UP
+Text
+
+
+
+--- PAGE 27 ---
+Coverage
+METRIC WHAT’S MEASURING WHEN SHOULD WE USE IT?
+Precision@K Quality of recommendations Simple systems
+Recall@K Coverage of relevant items Complete Datasets
+HitRate At least one good is appearing Streaming
+MAP Average ranking Search algorithms
+NDCG Weighted Ranking Advanced ranking (Stremaing)
+Coverage Catalogue diversity Big platforms (big amount of data)
+Diversity Recommendation variety UX
+Novelty New recommenadtion Discovery
+
+
+--- PAGE 28 ---
+PYTHON
+- As always, it is merged on my repo =)
+
+
+
+--- PAGE 29 ---
+PYTHON
+- As always, it is merged on my repo =)
+
+
+
+--- PAGE 30 ---
+PYTHON
+- As always, it is merged on my repo =)
+
+
+
+--- PAGE 31 ---
+PYTHON
+- As always, it is merged on my repo =)
+
+
+
+--- PAGE 32 ---
+PYTHON
+- As always, it is merged on my repo =)
+
+
+
+--- PAGE 33 ---
+PYTHON
+- As always, it is merged on my repo =)
+
+
+
+--- PAGE 34 ---
+PYTHON
+- As always, it is merged on my repo =)
+
+
+
+--- PAGE 35 ---
+PYTHON
+- As always, it is merged on my repo =)
+
+
+
+--- PAGE 36 ---
+PYTHON
+- As always, it is merged on my repo =)
+
+
+
+--- PAGE 37 ---
+Gràcies
+Text

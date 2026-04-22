@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+
+{% block title %}Panel de control | YTFake{% endblock %}
+
+{% macro metric_card(label, value, detail) -%}
+<article class="control-metric">
+  <span>{{ label }}</span>
+  <strong>{{ value }}</strong>
+  <p>{{ detail }}</p>
+</article>
+{%- endmacro %}
+
+{% macro signal_rows(title, rows, empty_text) -%}
+<section class="control-card">
+  <div class="control-card-head">
+    <p class="eyebrow">{{ title }}</p>
+  </div>
+  {% if rows %}
+    <div class="signal-list">
+      {% for row in rows %}
+      <div class="signal-row">
+        <div>
+          <strong>{{ row.name }}</strong>
+          <span>{{ row.score }}</span>
+        </div>
+        <div class="signal-bar">
+          <span style="width: {{ row.pct }}%"></span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="empty-copy">{{ empty_text }}</p>
+  {% endif %}
+</section>
+{%- endmacro %}
+
+{% macro quality_metric(metric) -%}
+<article class="quality-metric">
+  <span>{{ metric.label }}</span>
+  <strong>{{ metric.value }}</strong>
+  <p>{{ metric.detail }}</p>
+</article>
+{%- endmacro %}
+
+{% block body %}
+<main class="control-shell">
+  <header class="control-topbar">
+    <a class="brand" href="/home">
+      <span class="brand-mark"></span>
+      <span>YTFake Control</span>
+    </a>
+    <nav>
+      <a href="/home">Volver a la app</a>
+      <a href="/history">Historial</a>
+      <a href="/studio">Studio</a>
+      <a href="/logout">Salir</a>
+    </nav>
+  </header>
+
+  <section class="control-hero">
+    <div>
+      <p class="eyebrow">Panel de recomendacion</p>
+      <h1>Actividad, señales y decisiones del algoritmo.</h1>
+      <p>
+        Esta vista no es para consumir videos. Es una consola tecnica para ver que datos
+        esta usando el recomendador, cuanto pesa la sesion y que candidatos esta priorizando.
+      </p>
+    </div>
+    <div class="control-status">
+      <span>{{ dashboard.mode }}</span>
+      <strong>Usuario {{ user.user_id }}</strong>
+      <p>{{ dashboard.model_stack }}</p>
+    </div>
+  </section>
+
+  <section class="control-grid metrics-grid">
+    {{ metric_card("Catalogo", dashboard.catalog.total_videos, "videos disponibles") }}
+    {{ metric_card("Canales", dashboard.catalog.total_channels, "creadores/canales") }}
+    {{ metric_card("Usuarios", dashboard.catalog.total_users, "perfiles en features") }}
+    {{ metric_card("Videos nuevos", dashboard.catalog.recent_videos, "cold-start/frescura") }}
+  </section>
+
+  <section class="control-grid metrics-grid">
+    {{ metric_card("Vistos totales", dashboard.activity.seen_total, "historial + sesion") }}
+    {{ metric_card("Vistos en sesion", dashboard.activity.session_seen, "lo que mueve el contexto actual") }}
+    {{ metric_card("Likes locales", dashboard.activity.local_likes, "registrados en esta demo") }}
+    {{ metric_card("Suscripciones locales", dashboard.activity.local_subscriptions, "senales de canal") }}
+  </section>
+
+  <section class="quality-hero-card {{ dashboard.quality.summary.status }}">
+    <div>
+      <p class="eyebrow">Prueba de calidad</p>
+      <h2>¿El recomendador esta funcionando correctamente?</h2>
+      <p>{{ dashboard.quality.summary.message }}</p>
+    </div>
+    <div class="quality-score">
+      <strong>{{ dashboard.quality.summary.ok_count }}/{{ dashboard.quality.health_items | length }}</strong>
+      <span>checks OK</span>
+    </div>
+  </section>
+
+  <section class="quality-grid">
+    {% for item in dashboard.quality.health_items %}
+    <article class="health-check {{ item.status }}">
+      <span>{{ item.label }}</span>
+      <strong>{{ item.name }}</strong>
+      <p>{{ item.detail }}</p>
+    </article>
+    {% endfor %}
+  </section>
+
+  <section class="control-layout two-columns">
+    <section class="control-card">
+      <p class="eyebrow">Metricas de esta sesion</p>
+      <h2>Lo que ensenaria en demo</h2>
+      <div class="quality-metrics">
+        {% for metric in dashboard.quality.local_metrics %}
+          {{ quality_metric(metric) }}
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="control-card demo-card">
+      <p class="eyebrow">Explicacion corta</p>
+      <h2>Como defenderlo</h2>
+      <div class="demo-points">
+        {% for point in dashboard.quality.explain_demo %}
+        <p>{{ point }}</p>
+        {% endfor %}
+      </div>
+    </section>
+  </section>
+
+  {% if dashboard.quality.global_metrics %}
+  <section class="control-card global-quality-card">
+    <div class="control-card-head">
+      <div>
+        <p class="eyebrow">Evidencia offline</p>
+        <h2>Pequena parte global del modelo</h2>
+      </div>
+      <span>validacion guardada</span>
+    </div>
+    <div class="global-quality-grid">
+      {% for metric in dashboard.quality.global_metrics %}
+        {{ quality_metric(metric) }}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if dashboard.quality.offline_report.available %}
+  <section class="offline-quality-section">
+    <div class="control-card offline-intro-card">
+      <div>
+        <p class="eyebrow">Evaluacion offline completa</p>
+        <h2>Prueba reproducible del recomendador</h2>
+        <p>
+          Este bloque viene de `reports/recommender_quality_v1`: se puntua el split de test con el ranker,
+          se revisan negativos y se separan metricas de ranking, experiencia y candidatos.
+        </p>
+      </div>
+      <a class="secondary-button" href="/control">Actualizado desde report local</a>
+    </div>
+
+    <section class="global-quality-grid">
+      {% for metric in dashboard.quality.offline_report.headline_metrics %}
+        {{ quality_metric(metric) }}
+      {% endfor %}
+    </section>
+
+    <section class="control-layout two-columns">
+      <section class="control-card chart-card">
+        <p class="eyebrow">Ranking</p>
+        <h2>Ordena bien los candidatos</h2>
+        <div class="report-bars">
+          {% for item in dashboard.quality.offline_report.ranking %}
+          <div class="report-bar-row">
+            <div>
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.pct }}%</span>
+            </div>
+            <div class="signal-bar">
+              <span style="width: {{ item.pct }}%"></span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="control-card chart-card">
+        <p class="eyebrow">UX</p>
+        <h2>Diversidad, novedad y repetidos</h2>
+        <div class="report-bars">
+          {% for item in dashboard.quality.offline_report.ux %}
+          <div class="report-bar-row">
+            <div>
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.pct }}%</span>
+            </div>
+            <div class="signal-bar {% if item.label == 'Repeat vistos' %}danger-bar{% endif %}">
+              <span style="width: {{ item.pct }}%"></span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+    </section>
+
+    <section class="control-layout two-columns">
+      <section class="control-card">
+        <p class="eyebrow">Negative sampling</p>
+        <h2>De donde salen los positivos y negativos</h2>
+        <div class="quality-metrics">
+          {% for metric in dashboard.quality.offline_report.negative_summary %}
+            {{ quality_metric(metric) }}
+          {% endfor %}
+        </div>
+        <div class="report-bars compact-report-bars">
+          {% for item in dashboard.quality.offline_report.negative_sources %}
+          <div class="report-bar-row">
+            <div>
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.count }} filas</span>
+            </div>
+            <div class="signal-bar">
+              <span style="width: {{ item.pct }}%"></span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="control-card">
+        <p class="eyebrow">Pool de candidatos</p>
+        <h2>Cuantos videos compara por usuario</h2>
+        <div class="candidate-pool-table">
+          <div class="candidate-pool-row header">
+            <span>Split</span>
+            <span>Usuarios</span>
+            <span>Media</span>
+            <span>Max</span>
+          </div>
+          {% for row in dashboard.quality.offline_report.candidate_pool %}
+          <div class="candidate-pool-row">
+            <span>{{ row.split }}</span>
+            <span>{{ row.users }}</span>
+            <span>{{ row.mean_candidates }}</span>
+            <span>{{ row.max_candidates }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="warning-copy">{{ dashboard.quality.offline_report.candidate_warning }}</p>
+      </section>
+    </section>
+
+    <section class="control-card">
+      <p class="eyebrow">Conclusiones para explicar</p>
+      <h2>Lectura correcta de las metricas</h2>
+      <div class="demo-points">
+        {% for takeaway in dashboard.quality.offline_report.takeaways %}
+        <p>{{ takeaway }}</p>
+        {% endfor %}
+      </div>
+    </section>
+  </section>
+  {% endif %}
+
+  <section class="control-layout">
+    <section class="control-card weight-card">
+      <p class="eyebrow">Peso actual</p>
+      <h2>Mezcla historial vs sesion</h2>
+      <div class="weight-meter">
+        <span style="width: {{ dashboard.signals.historical_weight_pct }}%"></span>
+        <span style="width: {{ dashboard.signals.session_weight_pct }}%"></span>
+      </div>
+      <div class="weight-legend">
+        <span>Historico {{ dashboard.signals.historical_weight_pct }}%</span>
+        <span>Sesion {{ dashboard.signals.session_weight_pct }}%</span>
+      </div>
+      <p>
+        La sesion cambia la home, pero esta limitada para evitar que dos acciones cambien
+        todo el feed de golpe.
+      </p>
+    </section>
+
+    {{ signal_rows("Categorias activas", dashboard.signals.category_rows, "Todavia no hay suficientes vistas en esta sesion.") }}
+    {{ signal_rows("Canales activos", dashboard.signals.channel_rows, "Todavia no hay senales de canal en esta sesion.") }}
+  </section>
+
+  <section class="control-layout two-columns">
+    <section class="control-card">
+      <p class="eyebrow">Pipeline</p>
+      <h2>Como decide el sistema</h2>
+      <div class="pipeline-list">
+        {% for step in dashboard.pipeline_steps %}
+        <article>
+          <strong>{{ step.title }}</strong>
+          <p>{{ step.body }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="control-card">
+      <p class="eyebrow">Controles</p>
+      <h2>Reglas de producto</h2>
+      <div class="control-rules">
+        {% for rule in dashboard.controls %}
+        <article>
+          <span>{{ rule.name }}</span>
+          <strong>{{ rule.value }}</strong>
+          <p>{{ rule.detail }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+  </section>
+
+  <section class="control-card">
+    <div class="control-card-head">
+      <div>
+        <p class="eyebrow">Candidatos actuales</p>
+        <h2>Top recomendaciones que el sistema pondria ahora</h2>
+      </div>
+      <span>{{ dashboard.recommendations | length }} items</span>
+    </div>
+    {% if dashboard.recommendations %}
+    <div class="control-table">
+      <div class="control-table-row header">
+        <span>Video</span>
+        <span>Categoria</span>
+        <span>Canal</span>
+        <span>Final</span>
+        <span>Sesion</span>
+      </div>
+      {% for video in dashboard.recommendations %}
+      <a class="control-table-row" href="/watch/{{ video.video_id }}">
+        <span>{{ video.title }}</span>
+        <span>{{ video.category }}</span>
+        <span>{{ video.channel_name }}</span>
+        <span>{{ video.final_score }}</span>
+        <span>{{ video.session_bonus }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-copy">No hay candidatos todavia. Busca o abre videos para generar senales.</p>
+    {% endif %}
+  </section>
+
+  <section class="control-card">
+    <p class="eyebrow">Distribucion del catalogo</p>
+    <div class="catalog-bars">
+      {% for category in dashboard.catalog.category_rows %}
+      <div class="catalog-row">
+        <strong>{{ category.name }}</strong>
+        <div class="signal-bar">
+          <span style="width: {{ category.pct }}%"></span>
+        </div>
+        <span>{{ category.count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+{% endblock %}

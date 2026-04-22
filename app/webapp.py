@@ -47,12 +47,16 @@ def root() -> RedirectResponse:
 def login_page(request: Request):
     service = get_recommendation_service()
     suggested_users = service.get_login_users()
+    categories = service.available_categories()
     return templates.TemplateResponse(
         request=request,
         name="login.html",
         context={
             "request": request,
             "suggested_users": suggested_users,
+            "categories": categories,
+            "error": request.query_params.get("error", ""),
+            "created_user_id": request.query_params.get("created_user_id", ""),
             "app_name": "YTFake",
         },
     )
@@ -60,7 +64,26 @@ def login_page(request: Request):
 
 @app.post("/login")
 def login_submit(user_id: int = Form(...)) -> RedirectResponse:
+    service = get_recommendation_service()
+    if not service.user_exists(user_id):
+        return RedirectResponse(url="/login?error=user_not_found", status_code=303)
     response = RedirectResponse(url="/home", status_code=303)
+    response.set_cookie("ytfake_user_id", str(user_id), httponly=False, samesite="lax")
+    response.delete_cookie("ytfake_guest_id")
+    return response
+
+
+@app.post("/register")
+def register_submit(
+    channel_name: str = Form(...),
+) -> RedirectResponse:
+    service = get_recommendation_service()
+    try:
+        user_id = service.create_user(channel_name=channel_name)
+    except ValueError:
+        return RedirectResponse(url="/login?error=bad_register", status_code=303)
+
+    response = RedirectResponse(url=f"/home?created_user_id={user_id}", status_code=303)
     response.set_cookie("ytfake_user_id", str(user_id), httponly=False, samesite="lax")
     response.delete_cookie("ytfake_guest_id")
     return response
@@ -170,6 +193,25 @@ def history_page(request: Request):
     )
 
 
+@app.get("/control")
+def control_panel_page(request: Request):
+    user_id = current_user_id(request)
+    guest_id = current_guest_id(request)
+    if user_id is None and guest_id is None:
+        return RedirectResponse(url="/login", status_code=302)
+
+    service = get_recommendation_service()
+    page = service.control_panel_page(user_id) if user_id is not None else service.guest_control_panel_page(guest_id)
+    return templates.TemplateResponse(
+        request=request,
+        name="control.html",
+        context={
+            "request": request,
+            **page,
+        },
+    )
+
+
 @app.get("/api/search/suggest")
 def search_suggest(request: Request):
     user_id = current_user_id(request)
@@ -248,6 +290,36 @@ def studio_page(request: Request):
         name="studio.html",
         context={
             "request": request,
+            "categories": service.available_categories(),
+            "created_video_id": request.query_params.get("created", ""),
+            "error": request.query_params.get("error", ""),
             **page,
         },
     )
+
+
+@app.post("/studio/videos")
+def create_video_submit(
+    request: Request,
+    title: str = Form(...),
+    category: str = Form("Gaming"),
+    duration_minutes: int = Form(10),
+    keywords: str = Form(""),
+) -> RedirectResponse:
+    user_id = current_user_id(request)
+    if user_id is None:
+        return RedirectResponse(url="/login", status_code=303)
+
+    service = get_recommendation_service()
+    try:
+        video_id = service.create_video(
+            user_id=user_id,
+            title=title,
+            category=category,
+            duration_minutes=duration_minutes,
+            keywords=keywords,
+        )
+    except (KeyError, ValueError):
+        return RedirectResponse(url="/studio?error=bad_video", status_code=303)
+
+    return RedirectResponse(url=f"/studio?created={video_id}", status_code=303)

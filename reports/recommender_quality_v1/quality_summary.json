@@ -1,0 +1,176 @@
+{
+  "report_name": "recommender_quality_v1",
+  "generated_from": {
+    "ranking_dataset": "reco_output_v2\\training_dataset_balanced_v1.csv",
+    "ranker_model": "models\\ranker_compare_v1\\pairwise_xgboost\\ranker_model.json",
+    "retrieval_metrics": "models\\retrieval_multisource_v1\\metrics.json"
+  },
+  "ranking_metrics": {
+    "evaluated_users": 25865,
+    "precision_at_10": 0.558746,
+    "hit_rate_at_10": 1.0,
+    "recall_at_10": 1.0,
+    "ndcg_at_10": 0.992039,
+    "map_at_10": 0.989067,
+    "mrr_at_10": 0.989297,
+    "coverage_at_10": 0.667047,
+    "unique_recommended_items": 33908,
+    "category_diversity_at_10": 0.764362,
+    "channel_diversity_at_10": 0.99957,
+    "novelty_at_10": 0.006805,
+    "seen_repeat_rate_at_10": 0.033202
+  },
+  "negative_sampling": {
+    "total_rows": 600000,
+    "positive_rows": 300000,
+    "negative_rows": 300000,
+    "positive_rate": 0.5,
+    "source_counts": {
+      "observed_positive": 300000,
+      "synthetic_negative": 257924,
+      "observed_negative": 42076
+    },
+    "observed_negative_rows": 42076,
+    "synthetic_negative_rows": 257924,
+    "synthetic_hard_proxy_rate": 1.0,
+    "interpretation": [
+      "Los negativos observados vienen de baja retencion sin acciones positivas.",
+      "Los negativos sinteticos son videos no vistos, preferiblemente de categorias afines o recientes.",
+      "Falta separar explicitamente hard negatives por retrieval/categoria/canal para que el report sea mas defendible."
+    ]
+  },
+  "candidate_pool": {
+    "by_split": [
+      {
+        "split": "train",
+        "users": 93517,
+        "mean_candidates": 5.133,
+        "median_candidates": 5.0,
+        "max_candidates": 22
+      },
+      {
+        "split": "test",
+        "users": 28995,
+        "mean_candidates": 2.07,
+        "median_candidates": 2.0,
+        "max_candidates": 10
+      },
+      {
+        "split": "valid",
+        "users": 28900,
+        "mean_candidates": 2.075,
+        "median_candidates": 2.0,
+        "max_candidates": 10
+      }
+    ],
+    "warning": "La evaluacion del ranker tiene pocos candidatos por usuario; para demo esta bien, pero para produccion conviene evaluar con 20-100 candidatos realistas por usuario."
+  },
+  "retrieval_metrics": {
+    "valid": {
+      "hit@10": 0.000262,
+      "hit@50": 0.001282,
+      "category_hit@50": 0.997709,
+      "mrr@10": 7.1e-05,
+      "ndcg@10": 0.000181,
+      "mean_candidates_returned": 50.0,
+      "evaluated_users": 99065
+    },
+    "test": {
+      "hit@10": 0.000581,
+      "hit@50": 0.002004,
+      "category_hit@50": 0.997565,
+      "mrr@10": 0.000197,
+      "ndcg@10": 0.000453,
+      "mean_candidates_returned": 50.0,
+      "evaluated_users": 99807
+    },
+    "notes": [
+      "Retrieval multi-source para home: mezcla CF, categoria reciente, canales activos y frescura.",
+      "La metrica exacta por item sigue siendo dura; category_hit@50 es la lectura mas util para home."
+    ]
+  },
+  "charts": {
+    "ranking": [
+      {
+        "label": "Precision@10",
+        "value": 0.558746,
+        "pct": 55.87
+      },
+      {
+        "label": "HitRate@10",
+        "value": 1.0,
+        "pct": 100.0
+      },
+      {
+        "label": "Recall@10",
+        "value": 1.0,
+        "pct": 100.0
+      },
+      {
+        "label": "NDCG@10",
+        "value": 0.992039,
+        "pct": 99.2
+      },
+      {
+        "label": "MAP@10",
+        "value": 0.989067,
+        "pct": 98.91
+      },
+      {
+        "label": "MRR@10",
+        "value": 0.989297,
+        "pct": 98.93
+      }
+    ],
+    "ux": [
+      {
+        "label": "Coverage@10",
+        "value": 0.667047,
+        "pct": 66.7
+      },
+      {
+        "label": "Diversity categorias",
+        "value": 0.764362,
+        "pct": 76.44
+      },
+      {
+        "label": "Diversity canales",
+        "value": 0.99957,
+        "pct": 99.96
+      },
+      {
+        "label": "Novelty@10",
+        "value": 0.006805,
+        "pct": 0.68
+      },
+      {
+        "label": "Repeat vistos",
+        "value": 0.033202,
+        "pct": 3.32
+      }
+    ],
+    "negative_sources": [
+      {
+        "label": "observed_positive",
+        "count": 300000,
+        "pct": 50.0
+      },
+      {
+        "label": "synthetic_negative",
+        "count": 257924,
+        "pct": 42.99
+      },
+      {
+        "label": "observed_negative",
+        "count": 42076,
+        "pct": 7.01
+      }
+    ]
+  },
+  "demo_takeaway": [
+    "El ranker ordena bien dentro del pool evaluado y debe explicarse con NDCG, MAP, MRR y Precision@K.",
+    "El retrieval se debe defender por category_hit@50 y candidate quality, no por acierto exacto de item.",
+    "Los negativos observados son buenos; el siguiente salto es etiquetar hard negatives explicitamente.",
+    "Para una evaluacion mas realista falta aumentar candidatos por usuario en test."
+  ]
+}

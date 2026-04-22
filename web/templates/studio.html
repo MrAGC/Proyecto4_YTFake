@@ -25,17 +25,50 @@
   <section class="content-shell">
     <section class="placeholder-card">
       <p class="eyebrow">Studio</p>
-      <h1>La superficie para subir videos ya esta reservada.</h1>
+      <h1>Sube un video nuevo a tu canal.</h1>
       <p>
-        La siguiente fase es crear el flujo de subida y meter esos videos nuevos en el catalogo,
-        con fuerza por frescura para que el retrieval los considere aunque aun no tengan historial.
+        El video se guarda en el catalogo local, aparece en tu perfil y entra como cold-start
+        con fuerza de novedad para que el recomendador pueda probarlo.
       </p>
       <div class="placeholder-points">
         <span>Canal: {{ user.owned_channel_name }}</span>
         <span>{{ user.uploaded_videos }} videos actuales</span>
-        <span>Cold-start listo para la siguiente iteracion</span>
+        <span>Cold-start activo</span>
       </div>
-      <a class="primary-button disabled-button" href="#">Subir video (proxima fase)</a>
+      {% if created_video_id %}
+      <p class="success-note">Video {{ created_video_id }} creado correctamente.</p>
+      {% endif %}
+      {% if error == "bad_video" %}
+      <p class="form-error">No se pudo crear el video. Revisa titulo y duracion.</p>
+      {% endif %}
+      {% if user.account_role == "guest" %}
+      <p class="form-error">Los invitados no pueden subir videos. Crea una cuenta para usar Studio.</p>
+      {% else %}
+      <form action="/studio/videos" method="post" class="studio-form">
+        <label for="title">Titulo</label>
+        <input id="title" name="title" type="text" maxlength="160" required placeholder="Ej: Probando Minecraft con mis amigos">
+
+        <div class="form-grid">
+          <label>
+            Categoria
+            <select name="category">
+              {% for category in categories %}
+              <option value="{{ category }}">{{ category }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            Duracion en minutos
+            <input name="duration_minutes" type="number" min="1" max="240" value="12" required>
+          </label>
+        </div>
+
+        <label for="keywords">Palabras clave / de que va</label>
+        <textarea id="keywords" name="keywords" rows="3" placeholder="gaming, reto, amigos, partida..."></textarea>
+
+        <button type="submit" class="primary-button">Crear video</button>
+      </form>
+      {% endif %}
     </section>
 
     {% if created_videos %}

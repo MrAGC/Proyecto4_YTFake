@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import quote_plus
 
 import pandas as pd
 import xgboost as xgb
@@ -24,6 +25,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
 RECO_DIR = BASE_DIR / "reco_output_v2"
 MODELS_DIR = BASE_DIR / "models"
+REPORTS_DIR = BASE_DIR / "reports"
 
 METADATA_PATH = RECO_DIR / "training_dataset_balanced_v1_metadata.json"
 USER_FEATURES_PATH = RECO_DIR / "user_features.csv"
@@ -39,6 +41,10 @@ LOCAL_SEARCH_EVENTS_PATH = DATA_DIR / "local_search_events.csv"
 LOCAL_ENGAGEMENT_EVENTS_PATH = DATA_DIR / "local_engagement_events.csv"
 RANKER_MODEL_PATH = MODELS_DIR / "ranker_compare_v1" / "pairwise_xgboost" / "ranker_model.json"
 RETRIEVAL_HOME_MODEL_PATH = MODELS_DIR / "retrieval_multisource_v1" / "retrieval_model.pkl"
+RETRIEVAL_METRICS_PATH = MODELS_DIR / "retrieval_multisource_v1" / "metrics.json"
+RANKER_COMPARISON_PATH = MODELS_DIR / "ranker_compare_v1" / "comparison_summary.json"
+RETRIEVAL_DIAGNOSTICS_PATH = REPORTS_DIR / "retrieval_diagnostics_v1" / "diagnostics.json"
+QUALITY_SUMMARY_PATH = REPORTS_DIR / "recommender_quality_v1" / "quality_summary.json"
 
 CATEGORICAL_COLUMNS = [
     "surface",
@@ -48,6 +54,22 @@ CATEGORICAL_COLUMNS = [
     "user_recent_favorite_category",
     "video_category",
 ]
+CATEGORICAL_SAFE_VALUES = {
+    "surface": {"home", "watch_next", "search"},
+    "user_favorite_category": {"Comedy", "Education", "Gaming", "Lifestyle", "Music", "News", "Sports", "Tech"},
+    "user_favorite_device": {"Desktop", "Mobile", "TV", "Tablet"},
+    "user_favorite_time_slot": {"Afternoon", "Evening", "Morning", "Night"},
+    "user_recent_favorite_category": {"Comedy", "Education", "Gaming", "Lifestyle", "Music", "News", "Sports", "Tech", "unknown"},
+    "video_category": {"Comedy", "Education", "Gaming", "Lifestyle", "Music", "News", "Sports", "Tech"},
+}
+CATEGORICAL_FALLBACKS = {
+    "surface": "home",
+    "user_favorite_category": "Education",
+    "user_favorite_device": "Mobile",
+    "user_favorite_time_slot": "Morning",
+    "user_recent_favorite_category": "unknown",
+    "video_category": "Education",
+}
 
 DEFAULT_VIDEO_LIMIT = 240
 SESSION_HISTORY_LIMIT = 100
@@ -255,6 +277,348 @@ class RecommendationService:
                 )
             )
         return users
+
+    def user_exists(self, user_id: int) -> bool:
+        return int(user_id) in self.user_feature_map
+
+    def available_categories(self) -> list[str]:
+        categories = {
+            self._clean_text(category, "")
+            for category in self.videos["category"].dropna().unique().tolist()
+        }
+        categories.discard("")
+        return sorted(categories)
+
+    def create_user(self, channel_name: str, favorite_category: str = "Education") -> int:
+        channel_name = self._clean_text(channel_name, "").strip()
+        if not channel_name:
+            raise ValueError("El nombre del canal es obligatorio.")
+
+        favorite_category = "Education"
+        now = datetime.now(timezone.utc)
+        user_id = self._next_numeric_id(self.user_profiles, "user_id", self.user_features, self.interactions)
+        channel_id = self._next_numeric_id(self.channels, "channel_id")
+
+        profile_row = {
+            "user_id": user_id,
+            "account_role": "creator",
+            "is_creator": 1,
+            "owned_channel_id": channel_id,
+            "first_seen_at": now.isoformat(timespec="seconds"),
+            "last_seen_at": now.isoformat(timespec="seconds"),
+            "total_interactions": 0,
+            "unique_videos_seen": 0,
+            "unique_creators_seen": 0,
+            "likes_given": 0,
+            "comments_given": 0,
+            "subscriptions_made": 0,
+            "recommendation_clicks": 0,
+            "following_channels": 0,
+        }
+        user_feature_row = self._new_user_feature_row(user_id, favorite_category, now)
+        channel_row = self._new_channel_row(channel_id, user_id, channel_name, favorite_category, now)
+
+        self.user_profiles = self._append_dataframe_row(self.user_profiles, profile_row)
+        self.user_features = self._append_dataframe_row(self.user_features, user_feature_row)
+        self.channels = self._append_dataframe_row(self.channels, channel_row)
+
+        self._append_csv_row(USERS_PROFILES_PATH, self.user_profiles.columns, profile_row)
+        self._append_csv_row(USER_FEATURES_PATH, self.user_features.columns, user_feature_row)
+        self._append_csv_row(CHANNELS_PATH, self.channels.columns, channel_row)
+
+        self.user_profile_map[user_id] = profile_row
+        self.user_feature_map[user_id] = user_feature_row
+        self.channel_map[channel_id] = channel_row
+        self.channels_by_creator.setdefault(user_id, []).append(channel_id)
+        self.creator_video_ids.setdefault(user_id, [])
+        self.seen_by_user.setdefault(user_id, set())
+        self.historical_history_by_user.setdefault(user_id, [])
+        self.retrieval_bundle.setdefault("user_preferences", {})[user_id] = {
+            "favorite_category": "unknown",
+            "recent_favorite_category": "unknown",
+        }
+        return user_id
+
+    def create_video(
+        self,
+        user_id: int,
+        title: str,
+        category: str,
+        duration_minutes: int,
+        keywords: str = "",
+    ) -> int:
+        if user_id not in self.user_feature_map:
+            raise KeyError(f"No existe user_id={user_id}")
+
+        title = self._clean_text(title, "").strip()
+        if not title:
+            raise ValueError("El titulo es obligatorio.")
+
+        category = self._normalize_category(category)
+        duration_seconds = max(30, min(int(duration_minutes) * 60, 4 * 60 * 60))
+        now = datetime.now(timezone.utc)
+        channel_id = self._ensure_user_channel(user_id, category)
+        video_id = self._next_numeric_id(self.videos, "video_id", self.video_features)
+        keywords = self._clean_text(keywords, "").strip() or self._default_keywords_for_category(category)
+        thumbnail_dev_url, thumbnail_real_url = self._generated_thumbnail_urls(video_id, title, category)
+
+        video_row = {
+            "video_id": video_id,
+            "channel_id": channel_id,
+            "creator_user_id": user_id,
+            "titulo": title,
+            "video_duration_s": duration_seconds,
+            "published_at": now.date().isoformat(),
+            "category": category,
+            "que_pasa": keywords,
+            "first_interaction_at": "",
+            "last_interaction_at": "",
+            "total_views": 0,
+            "total_likes": 0,
+            "like_rate": 0.0,
+            "total_comments": 0,
+            "comment_rate": 0.0,
+            "suscriptores_ganados": 0,
+            "subscription_rate": 0.0,
+            "avg_watch_percent": 0.0,
+            "avg_watch_time_s": 0.0,
+            "veces_recomendado": 0,
+            "total_clics": 0,
+            "click_through_rate": 0.0,
+            "is_cold_start_video": 1,
+            "thumbnail_url": thumbnail_dev_url,
+            "thumbnail_source": "created_in_studio",
+            "thumbnail_dev_url": thumbnail_dev_url,
+            "thumbnail_real_url": thumbnail_real_url,
+            "thumbnail_real_source": "loremflickr_real_topic_seed",
+        }
+        video_feature_row = self._new_video_feature_row(video_row)
+
+        self.videos = self._append_dataframe_row(self.videos, video_row)
+        self.video_features = self._append_dataframe_row(self.video_features, video_feature_row)
+        self._append_csv_row(VIDEOS_PATH, self.videos.columns, video_row)
+        self._append_csv_row(VIDEO_FEATURES_PATH, self.video_features.columns, video_feature_row)
+
+        self.video_catalog_map[video_id] = video_row
+        self.video_feature_map[video_id] = video_feature_row
+        self.creator_video_ids.setdefault(user_id, [])
+        self.creator_video_ids[user_id].insert(0, video_id)
+        self._update_channel_after_video(channel_id, video_row)
+        self._add_video_to_retrieval_indexes(video_id, channel_id, category)
+        self.search_index = self._build_search_index()
+        return video_id
+
+    @staticmethod
+    def _append_dataframe_row(df: pd.DataFrame, row: dict[str, object]) -> pd.DataFrame:
+        aligned_row = {column: row.get(column, "") for column in df.columns}
+        return pd.concat([df, pd.DataFrame([aligned_row])], ignore_index=True)
+
+    @staticmethod
+    def _append_csv_row(path: Path, columns: pd.Index, row: dict[str, object]) -> None:
+        with open(path, "a", newline="", encoding="utf-8") as file_handle:
+            writer = csv.DictWriter(file_handle, fieldnames=list(columns))
+            writer.writerow({column: row.get(column, "") for column in columns})
+
+    @staticmethod
+    def _next_numeric_id(primary_df: pd.DataFrame, column: str, *extra_dfs: pd.DataFrame) -> int:
+        max_id = 0
+        for df in (primary_df, *extra_dfs):
+            if column not in df.columns or df.empty:
+                continue
+            values = pd.to_numeric(df[column], errors="coerce").dropna()
+            if not values.empty:
+                max_id = max(max_id, int(values.max()))
+        return max_id + 1
+
+    def _normalize_category(self, category: str) -> str:
+        raw_category = self._clean_text(category, "Gaming")
+        normalized = self._normalize_search_text(raw_category)
+        alias = SEARCH_CATEGORY_ALIASES.get(normalized)
+        if alias:
+            return alias
+        available = {self._normalize_search_text(item): item for item in self.available_categories()}
+        return available.get(normalized, raw_category.title())
+
+    def _new_user_feature_row(self, user_id: int, favorite_category: str, now: datetime) -> dict[str, object]:
+        return {
+            "user_id": user_id,
+            "user_total_interactions": 0,
+            "user_unique_videos": 0,
+            "user_unique_categories": 0,
+            "user_unique_creators": 0,
+            "user_avg_watch_percent": 0.0,
+            "user_completion_rate": 0.0,
+            "user_like_rate": 0.0,
+            "user_comment_rate": 0.0,
+            "user_subscription_rate": 0.0,
+            "user_recommended_share": 0.0,
+            "user_avg_implicit_score": 0.0,
+            "user_avg_video_freshness": 1.0,
+            "user_active_days": 0,
+            "user_first_timestamp": now.isoformat(timespec="seconds"),
+            "user_last_timestamp": now.isoformat(timespec="seconds"),
+            "user_recommendation_clicks": 0,
+            "user_recommendation_impressions": 0,
+            "user_click_from_reco_rate": 0.0,
+            "user_favorite_category": favorite_category,
+            "user_favorite_device": "Mobile",
+            "user_favorite_time_slot": "Morning",
+            "user_favorite_channel_id": 0,
+            "user_favorite_creator_id": 0,
+            "user_recent_favorite_category": favorite_category,
+            "user_recent_favorite_channel_id": 0,
+            "user_recent_favorite_creator_id": 0,
+            "user_recent_interactions_30d": 0,
+            "user_following_channels": 0,
+            "user_active_window_days": 0,
+        }
+
+    def _new_channel_row(
+        self,
+        channel_id: int,
+        user_id: int,
+        channel_name: str,
+        primary_category: str,
+        now: datetime,
+    ) -> dict[str, object]:
+        return {
+            "channel_id": channel_id,
+            "creator_user_id": user_id,
+            "channel_name": channel_name,
+            "primary_category": primary_category,
+            "channel_created_at": now.date().isoformat(),
+            "first_publish_at": "",
+            "last_publish_at": "",
+            "total_videos": 0,
+            "total_views": 0,
+            "total_likes": 0,
+            "total_comments": 0,
+            "total_subscriptions_generated": 0,
+            "followers_total": 0,
+            "avg_video_watch_percent": 0.0,
+            "avg_video_ctr": 0.0,
+            "avg_video_like_rate": 0.0,
+        }
+
+    def _ensure_user_channel(self, user_id: int, category: str) -> int:
+        profile_row = self.user_profile_map.get(user_id, {})
+        channel_id = self._resolve_owned_channel_id(user_id, profile_row)
+        if channel_id is not None and channel_id in self.channel_map:
+            return int(channel_id)
+
+        now = datetime.now(timezone.utc)
+        channel_id = self._next_numeric_id(self.channels, "channel_id")
+        channel_name = f"creator_{user_id}"
+        channel_row = self._new_channel_row(channel_id, user_id, channel_name, category, now)
+        self.channels = self._append_dataframe_row(self.channels, channel_row)
+        self._append_csv_row(CHANNELS_PATH, self.channels.columns, channel_row)
+        self.channel_map[channel_id] = channel_row
+        self.channels_by_creator.setdefault(user_id, []).append(channel_id)
+
+        if user_id in self.user_profile_map:
+            self.user_profile_map[user_id]["owned_channel_id"] = channel_id
+            self.user_profile_map[user_id]["is_creator"] = 1
+            self.user_profile_map[user_id]["account_role"] = "creator"
+            mask = self.user_profiles["user_id"].astype(int) == int(user_id)
+            self.user_profiles.loc[mask, ["owned_channel_id", "is_creator", "account_role"]] = [channel_id, 1, "creator"]
+            self.user_profiles.to_csv(USERS_PROFILES_PATH, index=False)
+        return channel_id
+
+    def _new_video_feature_row(self, video_row: dict[str, object]) -> dict[str, object]:
+        channel_id = int(video_row["channel_id"])
+        channel = self.channel_map.get(channel_id, {})
+        return {
+            "video_id": int(video_row["video_id"]),
+            "channel_id": channel_id,
+            "creator_user_id": int(video_row["creator_user_id"]),
+            "video_category": str(video_row["category"]),
+            "video_duration_s_clean": int(video_row["video_duration_s"]),
+            "total_views": 0,
+            "total_likes": 0,
+            "total_comments": 0,
+            "suscriptores_ganados": 0,
+            "veces_recomendado": 0,
+            "total_clics": 0,
+            "video_like_rate": 0.0,
+            "video_comment_rate": 0.0,
+            "video_subscription_rate": 0.0,
+            "video_avg_watch_percent": 0.0,
+            "video_ctr": 0.0,
+            "video_popularity_log": 0.0,
+            "video_engagement_score": 0.0,
+            "video_age_days": 0,
+            "video_freshness_score": 1.0,
+            "is_recent_upload": 1,
+            "video_discovery_score": 0.4,
+            "has_title_metadata": 1,
+            "has_keyword_metadata": 1,
+            "channel_followers_total": self._clean_int(channel.get("followers_total"), 0),
+            "channel_total_videos": self._clean_int(channel.get("total_videos"), 0) + 1,
+            "channel_views_per_video": 0.0,
+            "channel_engagement_score": 0.0,
+        }
+
+    @staticmethod
+    def _default_keywords_for_category(category: str) -> str:
+        defaults = {
+            "Gaming": "gameplay, partida, reto, trucos, reaccion",
+            "Sports": "partido, entrenamiento, resumen, jugadas, analisis",
+            "Music": "musica, directo, cancion, artista, reaccion",
+            "Education": "tutorial, aprender, explicacion, consejos, ejemplos",
+            "Tech": "tecnologia, gadgets, review, setup, herramientas",
+            "News": "noticias, actualidad, resumen, contexto, analisis",
+            "Comedy": "humor, reaccion, amigos, situacion, divertido",
+            "Lifestyle": "rutina, vlog, dia, experiencia, consejos",
+        }
+        return defaults.get(category, f"{category.lower()}, video, recomendacion, nuevo")
+
+    @staticmethod
+    def _generated_thumbnail_urls(video_id: int, title: str, category: str) -> tuple[str, str]:
+        title_text = quote_plus(f"{category} | {title[:80]}")
+        dev_colors = {
+            "Gaming": "7c3aed",
+            "Sports": "16a34a",
+            "Music": "db2777",
+            "Education": "2563eb",
+            "Tech": "0f172a",
+            "News": "ea580c",
+            "Comedy": "dc2626",
+            "Lifestyle": "be185d",
+        }
+        color = dev_colors.get(category, "ef4444")
+        dev_url = f"https://placehold.co/640x360/{color}/ffffff/png?text={title_text}"
+        real_topic = quote_plus(category.lower())
+        real_url = f"https://loremflickr.com/640/360/{real_topic}?lock={int(video_id)}"
+        return dev_url, real_url
+
+    def _update_channel_after_video(self, channel_id: int, video_row: dict[str, object]) -> None:
+        channel = self.channel_map.get(channel_id)
+        if not channel:
+            return
+        published_at = str(video_row["published_at"])
+        channel["total_videos"] = self._clean_int(channel.get("total_videos"), 0) + 1
+        channel["last_publish_at"] = published_at
+        if not self._clean_text(channel.get("first_publish_at"), ""):
+            channel["first_publish_at"] = published_at
+        mask = self.channels["channel_id"].astype(int) == int(channel_id)
+        for column, value in channel.items():
+            if column in self.channels.columns:
+                self.channels.loc[mask, column] = value
+        self.channels.to_csv(CHANNELS_PATH, index=False)
+
+    def _add_video_to_retrieval_indexes(self, video_id: int, channel_id: int, category: str) -> None:
+        bundle = self.retrieval_bundle
+
+        def prepend_unique(container: list[int], item: int, max_len: int = 1000) -> list[int]:
+            return [item] + [existing for existing in container if int(existing) != item][: max_len - 1]
+
+        bundle["global_recent"] = prepend_unique([int(item) for item in bundle.get("global_recent", [])], video_id)
+        category_top = bundle.setdefault("category_top_videos", {})
+        recent_category_top = bundle.setdefault("recent_category_top_videos", {})
+        channel_top = bundle.setdefault("channel_top_videos", {})
+        category_top[category] = prepend_unique([int(item) for item in category_top.get(category, [])], video_id)
+        recent_category_top[category] = prepend_unique([int(item) for item in recent_category_top.get(category, [])], video_id)
+        channel_top[channel_id] = prepend_unique([int(item) for item in channel_top.get(channel_id, [])], video_id)
 
     def _ensure_local_session_store(self) -> None:
         if LOCAL_SESSION_EVENTS_PATH.exists():
@@ -467,11 +831,12 @@ class RecommendationService:
         owned_channel_id = self._resolve_owned_channel_id(user_id, profile_row)
         owned_channel = self.channel_map.get(owned_channel_id, {}) if owned_channel_id is not None else {}
         session_state = self.session_states.get(user_id)
+        has_signal = self._user_has_recommendation_signal(user_id)
 
         return {
             "user_id": user_id,
-            "favorite_category": str(user_row.get("user_favorite_category", "General")),
-            "recent_category": str(user_row.get("user_recent_favorite_category", "General")),
+            "favorite_category": str(user_row.get("user_favorite_category", "General")) if has_signal else "Sin historial",
+            "recent_category": str(user_row.get("user_recent_favorite_category", "General")) if has_signal else "Sin historial",
             "following_channels": int(user_row.get("user_following_channels", 0)),
             "total_interactions": int(user_row.get("user_total_interactions", 0)),
             "recent_interactions_30d": int(user_row.get("user_recent_interactions_30d", 0)),
@@ -485,9 +850,10 @@ class RecommendationService:
 
     def home_page(self, user_id: int) -> dict[str, object]:
         user_snapshot = self.get_user_snapshot(user_id)
-        candidate_ids = self._home_candidate_ids(user_id, limit=DEFAULT_VIDEO_LIMIT)
-        ranked_videos = self._rank_candidates(user_id, candidate_ids, surface_value="home")
-        shelves = self._build_home_shelves(user_id, ranked_videos)
+        has_signal = self._user_has_recommendation_signal(user_id)
+        candidate_ids = self._home_candidate_ids(user_id, limit=DEFAULT_VIDEO_LIMIT) if has_signal else []
+        ranked_videos = self._rank_candidates(user_id, candidate_ids, surface_value="home") if has_signal else []
+        shelves = self._build_home_shelves(user_id, ranked_videos) if has_signal else []
         hero_video = ranked_videos[0] if ranked_videos else None
         hero_videos = self._home_hero_videos(shelves, ranked_videos)
         return {
@@ -498,7 +864,7 @@ class RecommendationService:
             "shelves": shelves,
             "model_stack": "multi_source_home + pairwise_xgboost + session_blend",
             "active_page": "home",
-            "needs_search": False,
+            "needs_search": not has_signal,
         }
 
     def watch_page(self, user_id: int, video_id: int) -> dict[str, object]:
@@ -559,6 +925,14 @@ class RecommendationService:
             "sidebar": self._build_sidebar(user_id),
             "history_items": self._history_page_cards_for_user(user_id),
             "active_page": "history",
+        }
+
+    def control_panel_page(self, user_id: int) -> dict[str, object]:
+        return {
+            "user": self.get_user_snapshot(user_id),
+            "sidebar": self._build_sidebar(user_id),
+            "dashboard": self._build_user_dashboard(user_id),
+            "active_page": "control",
         }
 
     def guest_home_page(self, guest_id: str) -> dict[str, object]:
@@ -636,6 +1010,14 @@ class RecommendationService:
             "active_page": "history",
         }
 
+    def guest_control_panel_page(self, guest_id: str) -> dict[str, object]:
+        return {
+            "user": self.get_guest_snapshot(guest_id),
+            "sidebar": self._build_guest_sidebar(guest_id),
+            "dashboard": self._build_guest_dashboard(guest_id),
+            "active_page": "control",
+        }
+
     def _build_historical_history(self) -> dict[int, list[int]]:
         histories: dict[int, list[int]] = {}
         ordered_interactions = self.interactions.sort_values("timestamp", ascending=False)
@@ -685,6 +1067,8 @@ class RecommendationService:
     def _build_session_focus(self, user_id: int) -> str:
         state = self.session_states.get(user_id)
         if state is None or not state.recent_video_ids:
+            if not self._user_has_recommendation_signal(user_id):
+                return "Sin historial: empieza buscando"
             favorite_category = str(self.user_feature_map[user_id].get("user_favorite_category", "General"))
             return f"Base historica: {favorite_category}"
 
@@ -752,6 +1136,15 @@ class RecommendationService:
         state = self.guest_states.get(guest_id)
         return state is not None and bool(state.recent_video_ids or state.engaged_video_ids)
 
+    def _user_has_recommendation_signal(self, user_id: int) -> bool:
+        if self.seen_by_user.get(user_id):
+            return True
+        user_row = self.user_feature_map.get(user_id, {})
+        if self._clean_int(user_row.get("user_total_interactions"), 0) > 0:
+            return True
+        state = self.session_states.get(user_id)
+        return state is not None and bool(state.recent_video_ids or state.engaged_video_ids)
+
     def _build_guest_session_focus(self, guest_id: str) -> str:
         state = self.guest_states.get(guest_id)
         if state is None or not state.recent_video_ids:
@@ -766,6 +1159,427 @@ class RecommendationService:
         if not category_counter:
             return "Invitado sin foco claro"
         return f"Invitado centrado ahora en: {category_counter.most_common(1)[0][0]}"
+
+    def _build_user_dashboard(self, user_id: int) -> dict[str, object]:
+        state = self.session_states.get(user_id)
+        seen_videos = self._combined_seen_videos(user_id)
+        historical_seen = set(self.seen_by_user.get(user_id, set()))
+        session_seen = set() if state is None else set(state.recent_video_ids)
+        category_signals = self._category_signal_rows(state)
+        channel_signals = self._channel_signal_rows(state)
+        has_signal = self._user_has_recommendation_signal(user_id)
+        candidate_ids = self._home_candidate_ids(user_id, limit=80) if has_signal else []
+        ranked_candidates = self._rank_candidates(user_id, candidate_ids, surface_value="home")[:12] if has_signal else []
+        event_counts = self._local_event_counts("user", str(user_id))
+        session_weight = self._session_weight(user_id)
+
+        return {
+            "mode": "Usuario registrado",
+            "model_stack": "Retrieval multi-source -> Pairwise XGBoost ranker -> blend de sesion",
+            "catalog": self._catalog_dashboard_stats(),
+            "activity": self._activity_payload(
+                seen_total=len(seen_videos),
+                historical_seen=len(historical_seen),
+                session_seen=len(session_seen),
+                liked_count=0 if state is None else len(state.liked_video_ids),
+                subscribed_count=0 if state is None else len(state.subscribed_channel_ids),
+                event_counts=event_counts,
+                session_weight=session_weight,
+            ),
+            "signals": {
+                "category_rows": category_signals,
+                "channel_rows": channel_signals,
+                "historical_weight_pct": round((1.0 - session_weight) * 100, 1),
+                "session_weight_pct": round(session_weight * 100, 1),
+            },
+            "recommendations": ranked_candidates,
+            "quality": self._quality_dashboard(
+                recommendations=ranked_candidates,
+                seen_videos=seen_videos,
+                session_categories={row["name"] for row in category_signals},
+                has_signal=has_signal,
+            ),
+            "pipeline_steps": self._pipeline_steps(),
+            "controls": self._control_rules(),
+        }
+
+    def _build_guest_dashboard(self, guest_id: str) -> dict[str, object]:
+        state = self.guest_states.get(guest_id)
+        seen_videos = self._guest_seen_videos(guest_id)
+        scores = self._guest_home_scores(guest_id)
+        ranked_candidates = self._cards_from_scores(scores, limit=12)
+        event_counts = self._local_event_counts("guest", guest_id)
+        session_weight = 1.0 if state is not None and (state.recent_video_ids or state.engaged_video_ids) else 0.0
+
+        return {
+            "mode": "Invitado local",
+            "model_stack": "Guest session -> item/category/channel retrieval -> ranking ligero por score",
+            "catalog": self._catalog_dashboard_stats(),
+            "activity": self._activity_payload(
+                seen_total=len(seen_videos),
+                historical_seen=0,
+                session_seen=len(seen_videos),
+                liked_count=0 if state is None else len(state.liked_video_ids),
+                subscribed_count=0 if state is None else len(state.subscribed_channel_ids),
+                event_counts=event_counts,
+                session_weight=session_weight,
+            ),
+            "signals": {
+                "category_rows": self._category_signal_rows(state),
+                "channel_rows": self._channel_signal_rows(state),
+                "historical_weight_pct": 0.0,
+                "session_weight_pct": round(session_weight * 100, 1),
+            },
+            "recommendations": ranked_candidates,
+            "quality": self._quality_dashboard(
+                recommendations=ranked_candidates,
+                seen_videos=seen_videos,
+                session_categories={row["name"] for row in self._category_signal_rows(state)},
+                has_signal=bool(state is not None and (state.recent_video_ids or state.engaged_video_ids)),
+            ),
+            "pipeline_steps": self._pipeline_steps(),
+            "controls": self._control_rules(),
+        }
+
+    def _catalog_dashboard_stats(self) -> dict[str, object]:
+        category_counts = self.videos["category"].fillna("unknown").astype(str).value_counts().head(8)
+        recent_count = int(pd.to_numeric(self.video_features["is_recent_upload"], errors="coerce").fillna(0).sum())
+        return {
+            "total_videos": int(len(self.videos)),
+            "total_channels": int(len(self.channels)),
+            "total_users": int(len(self.user_features)),
+            "recent_videos": recent_count,
+            "category_rows": [
+                {
+                    "name": str(category),
+                    "count": int(count),
+                    "pct": round((int(count) / max(len(self.videos), 1)) * 100, 1),
+                }
+                for category, count in category_counts.items()
+            ],
+        }
+
+    def _activity_payload(
+        self,
+        seen_total: int,
+        historical_seen: int,
+        session_seen: int,
+        liked_count: int,
+        subscribed_count: int,
+        event_counts: dict[str, int],
+        session_weight: float,
+    ) -> dict[str, object]:
+        return {
+            "seen_total": seen_total,
+            "historical_seen": historical_seen,
+            "session_seen": session_seen,
+            "liked_count": liked_count,
+            "subscribed_count": subscribed_count,
+            "local_views": event_counts.get("views", 0),
+            "local_searches": event_counts.get("searches", 0),
+            "local_likes": event_counts.get("likes", 0),
+            "local_subscriptions": event_counts.get("subscriptions", 0),
+            "session_weight_pct": round(session_weight * 100, 1),
+        }
+
+    def _category_signal_rows(self, state: SessionState | None) -> list[dict[str, object]]:
+        if state is None:
+            return []
+        scores = self._session_preference_maps_from_state(state)["category_scores"]
+        return [
+            {"name": str(category), "score": round(float(score), 3), "pct": round(float(score) * 100, 1)}
+            for category, score in sorted(scores.items(), key=lambda item: item[1], reverse=True)[:6]
+        ]
+
+    def _channel_signal_rows(self, state: SessionState | None) -> list[dict[str, object]]:
+        if state is None:
+            return []
+        scores = self._session_preference_maps_from_state(state)["channel_scores"]
+        rows: list[dict[str, object]] = []
+        for channel_id, score in sorted(scores.items(), key=lambda item: item[1], reverse=True)[:6]:
+            channel = self.channel_map.get(int(channel_id), {})
+            rows.append(
+                {
+                    "name": self._clean_text(channel.get("channel_name"), f"channel_{channel_id}"),
+                    "score": round(float(score), 3),
+                    "pct": round(float(score) * 100, 1),
+                }
+            )
+        return rows
+
+    def _local_event_counts(self, actor_type: str, actor_id: str) -> dict[str, int]:
+        counts = {"views": 0, "searches": 0, "likes": 0, "subscriptions": 0}
+        if LOCAL_SESSION_EVENTS_PATH.exists():
+            events = pd.read_csv(LOCAL_SESSION_EVENTS_PATH)
+            if not events.empty:
+                mask = (events["actor_type"].astype(str) == actor_type) & (events["actor_id"].astype(str) == actor_id)
+                counts["views"] = int(mask.sum())
+        if LOCAL_SEARCH_EVENTS_PATH.exists():
+            events = pd.read_csv(LOCAL_SEARCH_EVENTS_PATH)
+            if not events.empty:
+                mask = (events["actor_type"].astype(str) == actor_type) & (events["actor_id"].astype(str) == actor_id)
+                counts["searches"] = int(mask.sum())
+        if LOCAL_ENGAGEMENT_EVENTS_PATH.exists():
+            events = pd.read_csv(LOCAL_ENGAGEMENT_EVENTS_PATH)
+            if not events.empty:
+                mask = (events["actor_type"].astype(str) == actor_type) & (events["actor_id"].astype(str) == actor_id)
+                actor_events = events[mask]
+                counts["likes"] = int((actor_events["event_type"].astype(str) == "like").sum())
+                counts["subscriptions"] = int((actor_events["event_type"].astype(str) == "subscribe").sum())
+        return counts
+
+    def _quality_dashboard(
+        self,
+        recommendations: list[dict[str, object]],
+        seen_videos: set[int],
+        session_categories: set[str],
+        has_signal: bool,
+    ) -> dict[str, object]:
+        total = len(recommendations)
+        repeated_seen = sum(1 for video in recommendations if int(video["video_id"]) in seen_videos)
+        categories = [str(video.get("category", "unknown")) for video in recommendations]
+        channels = [int(video.get("channel_id", 0)) for video in recommendations]
+        new_count = sum(1 for video in recommendations if int(video.get("is_recent_upload", 0)) == 1)
+        session_match = (
+            sum(1 for category in categories if category in session_categories)
+            if session_categories
+            else 0
+        )
+        unique_categories = len(set(categories))
+        unique_channels = len(set(channels))
+        diversity_pct = round((unique_categories / max(total, 1)) * 100, 1)
+        channel_diversity_pct = round((unique_channels / max(total, 1)) * 100, 1)
+        freshness_pct = round((new_count / max(total, 1)) * 100, 1)
+        session_match_pct = round((session_match / max(total, 1)) * 100, 1)
+        seen_filter_ok = repeated_seen == 0
+        enough_candidates = total >= 8 if has_signal else total == 0
+        diversity_ok = unique_categories >= min(3, total) if total else not has_signal
+        session_ok = session_match_pct >= 35 if session_categories and total else True
+        freshness_ok = freshness_pct > 0 if total else True
+        health_items = [
+            self._health_item("Filtro de vistos", seen_filter_ok, f"{repeated_seen} repetidos en top {total}"),
+            self._health_item("Candidatos suficientes", enough_candidates, f"{total} recomendaciones generadas"),
+            self._health_item("Diversidad de temas", diversity_ok, f"{unique_categories} categorias en top {total}"),
+            self._health_item("Coherencia con sesion", session_ok, f"{session_match_pct}% encaja con temas activos"),
+            self._health_item("Novedad controlada", freshness_ok, f"{freshness_pct}% videos nuevos"),
+        ]
+        ok_count = sum(1 for item in health_items if item["status"] == "ok")
+        warn_count = sum(1 for item in health_items if item["status"] == "warn")
+        global_metrics = self._global_quality_metrics()
+        return {
+            "summary": {
+                "status": "correcto" if warn_count == 0 else "revisar",
+                "ok_count": ok_count,
+                "warn_count": warn_count,
+                "message": (
+                    "El recomendador esta sano para esta sesion."
+                    if warn_count == 0
+                    else "Hay senales que conviene revisar antes de defender la demo."
+                ),
+            },
+            "health_items": health_items,
+            "local_metrics": [
+                {"label": "Vistos repetidos", "value": repeated_seen, "detail": "deberia ser 0"},
+                {"label": "Diversidad categorias", "value": f"{diversity_pct}%", "detail": f"{unique_categories} temas"},
+                {"label": "Diversidad canales", "value": f"{channel_diversity_pct}%", "detail": f"{unique_channels} canales"},
+                {"label": "Videos nuevos", "value": f"{freshness_pct}%", "detail": "frescura/cold-start"},
+                {"label": "Match sesion", "value": f"{session_match_pct}%", "detail": "coherencia actual"},
+            ],
+            "explain_demo": [
+                "Ocultamos videos ya vistos para no repetir contenido.",
+                "La sesion actual cambia la home, pero con limite para no crear una burbuja instantanea.",
+                "El ranker ordena candidatos usando senales de usuario, video, canal, frescura y afinidad.",
+                "La calidad se mira con checks locales y con metricas offline del ranker/retrieval.",
+            ],
+            "global_metrics": global_metrics,
+            "offline_report": self._offline_quality_report(),
+        }
+
+    @staticmethod
+    def _health_item(name: str, ok: bool, detail: str) -> dict[str, str]:
+        return {
+            "name": name,
+            "status": "ok" if ok else "warn",
+            "label": "OK" if ok else "Revisar",
+            "detail": detail,
+        }
+
+    def _global_quality_metrics(self) -> list[dict[str, str]]:
+        metrics: list[dict[str, str]] = []
+        retrieval_metrics = self._read_json(RETRIEVAL_METRICS_PATH)
+        ranker_metrics = self._read_json(RANKER_COMPARISON_PATH)
+        diagnostics = self._read_json(RETRIEVAL_DIAGNOSTICS_PATH)
+
+        retrieval_test = retrieval_metrics.get("test", {}) if isinstance(retrieval_metrics, dict) else {}
+        if retrieval_test:
+            metrics.append(
+                {
+                    "label": "Retrieval category_hit@50",
+                    "value": self._format_pct(float(retrieval_test.get("category_hit@50", 0))),
+                    "detail": "recupera bien el tema aunque no siempre el item exacto",
+                }
+            )
+            metrics.append(
+                {
+                    "label": "Retrieval candidatos",
+                    "value": str(round(float(retrieval_test.get("mean_candidates_returned", 0)), 1)),
+                    "detail": "media de candidatos por usuario evaluado",
+                }
+            )
+
+        pairwise_test = {}
+        if isinstance(ranker_metrics, dict):
+            pairwise_test = ranker_metrics.get("pairwise_xgboost", {}).get("test", {})
+        if pairwise_test:
+            metrics.append(
+                {
+                    "label": "Ranker precision@1",
+                    "value": self._format_pct(float(pairwise_test.get("precision_at_1", 0))),
+                    "detail": "capacidad de poner un buen candidato arriba",
+                }
+            )
+            metrics.append(
+                {
+                    "label": "Ranker NDCG@10",
+                    "value": self._format_pct(float(pairwise_test.get("ndcg_at_10", 0))),
+                    "detail": "calidad del orden en el top 10",
+                }
+            )
+
+        conclusion = diagnostics.get("conclusion", {}) if isinstance(diagnostics, dict) else {}
+        if conclusion:
+            metrics.append(
+                {
+                    "label": "Diagnostico",
+                    "value": "tema OK",
+                    "detail": str(conclusion.get("root_cause", ""))[:120],
+                }
+            )
+        return metrics
+
+    def _offline_quality_report(self) -> dict[str, object]:
+        report = self._read_json(QUALITY_SUMMARY_PATH)
+        if not report:
+            return {}
+
+        ranking_metrics = report.get("ranking_metrics", {})
+        negative_sampling = report.get("negative_sampling", {})
+        candidate_pool = report.get("candidate_pool", {})
+        retrieval_metrics = report.get("retrieval_metrics", {})
+        retrieval_test = retrieval_metrics.get("test", {}) if isinstance(retrieval_metrics, dict) else {}
+        return {
+            "available": True,
+            "ranking": report.get("charts", {}).get("ranking", []),
+            "ux": report.get("charts", {}).get("ux", []),
+            "negative_sources": report.get("charts", {}).get("negative_sources", []),
+            "candidate_pool": candidate_pool.get("by_split", []),
+            "candidate_warning": candidate_pool.get("warning", ""),
+            "takeaways": report.get("demo_takeaway", []),
+            "headline_metrics": [
+                {
+                    "label": "Usuarios evaluados",
+                    "value": str(ranking_metrics.get("evaluated_users", "n/a")),
+                    "detail": "usuarios del split test con candidatos",
+                },
+                {
+                    "label": "Coverage@10",
+                    "value": self._format_pct(float(ranking_metrics.get("coverage_at_10", 0))),
+                    "detail": "catalogo distinto recomendado",
+                },
+                {
+                    "label": "Repeat vistos@10",
+                    "value": self._format_pct(float(ranking_metrics.get("seen_repeat_rate_at_10", 0))),
+                    "detail": "cuanto se cuelan vistos historicos",
+                },
+                {
+                    "label": "Retrieval category_hit@50",
+                    "value": self._format_pct(float(retrieval_test.get("category_hit@50", 0))),
+                    "detail": "recupera el tema correcto",
+                },
+            ],
+            "negative_summary": [
+                {
+                    "label": "Positivos",
+                    "value": str(negative_sampling.get("positive_rows", "n/a")),
+                    "detail": "alta retencion o accion positiva",
+                },
+                {
+                    "label": "Negativos observados",
+                    "value": str(negative_sampling.get("observed_negative_rows", "n/a")),
+                    "detail": "baja retencion sin acciones positivas",
+                },
+                {
+                    "label": "Negativos sinteticos",
+                    "value": str(negative_sampling.get("synthetic_negative_rows", "n/a")),
+                    "detail": "no vistos plausibles",
+                },
+                {
+                    "label": "Hard proxy",
+                    "value": self._format_pct(float(negative_sampling.get("synthetic_hard_proxy_rate", 0))),
+                    "detail": "sinteticos afines por categoria/follow",
+                },
+            ],
+        }
+
+    @staticmethod
+    def _read_json(path: Path) -> dict[str, object]:
+        if not path.exists():
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as file_handle:
+                return json.load(file_handle)
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    @staticmethod
+    def _format_pct(value: float) -> str:
+        return f"{value * 100:.1f}%"
+
+    @staticmethod
+    def _pipeline_steps() -> list[dict[str, str]]:
+        return [
+            {
+                "title": "1. Retrieval",
+                "body": "Saca candidatos desde collaborative filtering, categorias preferidas, canales vistos/seguidos y videos recientes.",
+            },
+            {
+                "title": "2. Ranking",
+                "body": "Ordena candidatos con un ranker pairwise XGBoost usando features de usuario, video, canal, frescura y afinidad.",
+            },
+            {
+                "title": "3. Sesion actual",
+                "body": "Recalcula la home con las ultimas vistas. Tiene peso limitado para no convertir dos likes en una burbuja total.",
+            },
+            {
+                "title": "4. Filtros de producto",
+                "body": "No vuelve a mostrar vistos, separa listas por objetivo y usa cuotas suaves para mantener variedad.",
+            },
+        ]
+
+    @staticmethod
+    def _control_rules() -> list[dict[str, str]]:
+        return [
+            {
+                "name": "Vistos",
+                "value": "bloqueados",
+                "detail": "Si el video ya se ha visto en historial o sesion, se excluye de home/watch-next.",
+            },
+            {
+                "name": "Likes",
+                "value": "peso bajo",
+                "detail": "Refuerzan tema, pero no dominan la recomendacion.",
+            },
+            {
+                "name": "Suscripciones",
+                "value": "afinidad de canal",
+                "detail": "Afectan sobre todo dentro de temas ya relevantes, no fuerzan todo el feed.",
+            },
+            {
+                "name": "Novedad",
+                "value": "boost controlado",
+                "detail": "Los videos nuevos pueden entrar aunque no tengan historial, pero deben competir con el ranker.",
+            },
+        ]
 
     def _history_card(self, video_id: int, source_label: str) -> dict[str, object] | None:
         card = self._video_card(video_id)
@@ -1506,7 +2320,12 @@ class RecommendationService:
         features_df = pd.DataFrame(rows)[self.feature_columns].copy()
         for column in CATEGORICAL_COLUMNS:
             if column in features_df.columns:
-                features_df[column] = features_df[column].fillna("unknown").astype("category")
+                allowed_values = CATEGORICAL_SAFE_VALUES.get(column, set())
+                fallback = CATEGORICAL_FALLBACKS.get(column, "unknown")
+                features_df[column] = features_df[column].fillna(fallback).astype(str)
+                if allowed_values:
+                    features_df[column] = features_df[column].where(features_df[column].isin(allowed_values), fallback)
+                features_df[column] = features_df[column].astype("category")
         for column in features_df.columns:
             if column in CATEGORICAL_COLUMNS:
                 continue
