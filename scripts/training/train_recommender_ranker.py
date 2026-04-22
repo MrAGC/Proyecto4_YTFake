@@ -11,8 +11,9 @@ from sklearn.metrics import average_precision_score, log_loss, roc_auc_score
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-PREPARED_DATASET = PROJECT_ROOT / "reco_output_v2" / "training_dataset_balanced_v1.csv"
-BASELINE_DATASET = PROJECT_ROOT / "reco_output_v2" / "ranking_dataset.csv"
+DATASETS_DIR = PROJECT_ROOT / "datasets_unificados_usados"
+PREPARED_DATASET = DATASETS_DIR / "training_dataset_balanced_v1.csv"
+BASELINE_DATASET = DATASETS_DIR / "ranking_dataset.csv"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "models" / "ranker_v1"
 
 CATEGORICAL_COLUMNS = [

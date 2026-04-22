@@ -10,10 +10,11 @@ import xgboost as xgb
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATASET_PATH = PROJECT_ROOT / "reco_output_v2" / "training_dataset_balanced_v1.csv"
-METADATA_PATH = PROJECT_ROOT / "reco_output_v2" / "training_dataset_balanced_v1_metadata.json"
-CF_DATASET_PATH = PROJECT_ROOT / "reco_output_v2" / "cf_interactions.csv"
-VIDEOS_PATH = PROJECT_ROOT / "reco_output_v2" / "video_features.csv"
+DATASETS_DIR = PROJECT_ROOT / "datasets_unificados_usados"
+DATASET_PATH = DATASETS_DIR / "training_dataset_balanced_v1.csv"
+METADATA_PATH = DATASETS_DIR / "training_dataset_balanced_v1_metadata.json"
+CF_DATASET_PATH = DATASETS_DIR / "cf_interactions.csv"
+VIDEOS_PATH = DATASETS_DIR / "video_features.csv"
 RANKER_MODEL_PATH = PROJECT_ROOT / "models" / "ranker_compare_v1" / "pairwise_xgboost" / "ranker_model.json"
 RETRIEVAL_METRICS_PATH = PROJECT_ROOT / "models" / "retrieval_multisource_v1" / "metrics.json"
 OUTPUT_DIR = PROJECT_ROOT / "reports" / "recommender_quality_v1"

@@ -8,7 +8,8 @@ import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATASET_PATH = PROJECT_ROOT / "reco_output_v2" / "ranking_dataset.csv"
+DATASETS_DIR = PROJECT_ROOT / "datasets_unificados_usados"
+DATASET_PATH = DATASETS_DIR / "ranking_dataset.csv"
 OUTPUT_DIR = PROJECT_ROOT / "reports" / "training_audit_v1"
 
 LEAKAGE_HINT_PATTERNS = [

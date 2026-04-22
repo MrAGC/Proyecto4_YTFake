@@ -14,7 +14,8 @@ from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATASET_PATH = PROJECT_ROOT / "reco_output_v2" / "training_dataset_balanced_v1.csv"
+DATASETS_DIR = PROJECT_ROOT / "datasets_unificados_usados"
+DATASET_PATH = DATASETS_DIR / "training_dataset_balanced_v1.csv"
 OUTPUT_DIR = PROJECT_ROOT / "models" / "ranker_compare_v1"
 
 CATEGORICAL_COLUMNS = [

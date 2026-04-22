@@ -23,8 +23,9 @@ from ml.train_retrieval_cf import (
 )
 
 
-CF_DATASET_PATH = PROJECT_ROOT / "reco_output_v2" / "cf_interactions.csv"
-VIDEO_FEATURES_PATH = PROJECT_ROOT / "reco_output_v2" / "video_features.csv"
+DATASETS_DIR = PROJECT_ROOT / "datasets_unificados_usados"
+CF_DATASET_PATH = DATASETS_DIR / "cf_interactions.csv"
+VIDEO_FEATURES_PATH = DATASETS_DIR / "video_features.csv"
 RETRIEVAL_MODEL_PATH = PROJECT_ROOT / "models" / "retrieval_cf_v1" / "retrieval_model.pkl"
 OUTPUT_DIR = PROJECT_ROOT / "reports" / "retrieval_diagnostics_v1"
 
